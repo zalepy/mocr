@@ -13,6 +13,16 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 
 @pytest.fixture(scope="session")
+def qapp():
+    """Create QApplication for all tests"""
+    from PyQt5.QtWidgets import QApplication
+    app = QApplication.instance()
+    if app is None:
+        app = QApplication(sys.argv)
+    return app
+
+
+@pytest.fixture(scope="session")
 def sample_image_path():
     """Provide path to sample OCR test image"""
     path = Path(__file__).parent / "sample.png"

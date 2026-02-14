@@ -50,10 +50,27 @@ python screen_ocr.py
 ### Basic Usage
 
 1. Run the application - it will minimize to system tray
+   ```bash
+   python screen_ocr.py
+   ```
 2. Press `Ctrl+Alt+Print Screen` to start screen capture
 3. Click and drag to select a region of the screen
 4. Release mouse button to capture and OCR
 5. The extracted text is automatically copied to clipboard
+
+### Debug Mode
+
+To see detailed debug output (useful for troubleshooting):
+
+```bash
+python screen_ocr.py --debug
+```
+
+This will print information about:
+- Multi-monitor detection and geometry
+- Selection coordinates and screen matching
+- Hotkey events
+- Screen capture operations
 
 ### Alternative Methods
 
@@ -108,6 +125,23 @@ class Config:
 ```
 
 ## Troubleshooting
+
+### Multi-monitor Issues
+
+If the selection overlay doesn't appear on all monitors or captures from the wrong screen:
+
+1. Run with debug mode to see monitor detection:
+   ```bash
+   python screen_ocr.py --debug
+   ```
+
+2. Check the output for screen geometries - they should show all your monitors
+
+3. The tool automatically detects and handles:
+   - Monitors with gaps in coordinates (common with OS scaling)
+   - Different screen resolutions
+   - Different refresh rates
+   - Portrait/landscape orientations
 
 ### "Tesseract not found" error
 

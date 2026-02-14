@@ -99,6 +99,10 @@ pytest --cov=screen_ocr --cov-report=xml
   - `TestWindowsIntegration` - Windows-specific utilities tests
   - `TestIntegration` - End-to-end workflow tests
 
+- **`tests/test_multimonitor_selection.py`** - Multi-monitor selection tests with:
+  - `TestMultiMonitorSelection` - Screen selection and capture coordinate mapping
+  - `TestOverlayWindowSpanning` - Overlay window positioning across monitors
+
 ### Test Requirements
 
 - **Sample Image**: `tests/sample.png` - Used for OCR testing

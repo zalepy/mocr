@@ -5,7 +5,10 @@ A Windows-like screen capture tool that performs OCR on the selected region
 and copies the text to clipboard instead of the image.
 
 Usage:
-    python screen_ocr.py
+    python screen_ocr.py [--debug]
+
+Options:
+    --debug    Enable debug output
 
 Hotkey: Ctrl+Alt+Print Screen (configurable) to start screen capture
 Press ESC to cancel selection
@@ -17,6 +20,14 @@ import subprocess
 from pathlib import Path
 from typing import Optional, Tuple
 import threading
+
+# Debug flag
+DEBUG = "--debug" in sys.argv
+
+def debug_print(*args, **kwargs):
+    """Print only if debug mode is enabled"""
+    if DEBUG:
+        print(*args, **kwargs)
 
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
@@ -200,6 +211,7 @@ class Config:
         "Spanish": "spa",
         "Russian": "rus",
         "Arabic": "ara",
+        "Bulgarian": "bul",
     }
 
 
@@ -223,10 +235,10 @@ class SelectionOverlay(QWidget):
         self.selection_rect = QRect()
         
         # Setup window properties for fullscreen overlay
+        # Use simpler flags to ensure window spans all screens
         self.setWindowFlags(
             Qt.WindowStaysOnTopHint |
-            Qt.FramelessWindowHint |
-            Qt.Tool
+            Qt.FramelessWindowHint
         )
         self.setAttribute(Qt.WA_TranslucentBackground, True)
         self.setAttribute(Qt.WA_ShowWithoutActivating, True)
@@ -248,18 +260,39 @@ class SelectionOverlay(QWidget):
         if not screens:
             return QRect(0, 0, 1920, 1080)
         
+        debug_print(f"\n=== Multi-Monitor Debug Info ===")
+        debug_print(f"Number of screens: {len(screens)}")
+        
         combined = screens[0].geometry()
-        for screen in screens[1:]:
-            combined = combined.united(screen.geometry())
+        debug_print(f"Screen 0: x={combined.x()}, y={combined.y()}, w={combined.width()}, h={combined.height()}")
+        
+        for idx, screen in enumerate(screens[1:], start=1):
+            geo = screen.geometry()
+            debug_print(f"Screen {idx}: x={geo.x()}, y={geo.y()}, w={geo.width()}, h={geo.height()}")
+            combined = combined.united(geo)
+        
+        debug_print(f"Combined: x={combined.x()}, y={combined.y()}, w={combined.width()}, h={combined.height()}")
+        debug_print(f"================================\n")
         return combined
     
     def start_selection(self):
         """Start the selection process"""
+        # Recalculate geometry in case monitor setup changed
+        self.total_geometry = self._get_combined_screen_geometry()
+        self.setGeometry(self.total_geometry)
+        
+        debug_print(f"Overlay geometry set to: x={self.total_geometry.x()}, y={self.total_geometry.y()}, "
+                    f"w={self.total_geometry.width()}, h={self.total_geometry.height()}")
+        
+        # Ensure window is positioned correctly and shown
         self.show()
+        self.setWindowState(self.windowState() & ~Qt.WindowMinimized)  # Unminimize if minimized
         self.activateWindow()
         self.raise_()
         self.setFocus()
         self.selecting = False
+        self.selection_rect = QRect()
+        self.update()
         self.selection_rect = QRect()
         self.update()
     
@@ -267,6 +300,10 @@ class SelectionOverlay(QWidget):
         """Paint the overlay with darkening effect and selection rectangle"""
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
+        
+        # Debug: Log actual widget geometry
+        debug_print(f"[paintEvent] Widget size: {self.width()}x{self.height()}, "
+                    f"Geometry: x={self.x()}, y={self.y()}, w={self.width()}, h={self.height()}")
         
         # Draw semi-transparent overlay on entire screen
         overlay_color = QColor(0, 0, 0, int(255 * Config.OVERLAY_OPACITY))
@@ -341,6 +378,7 @@ class SelectionOverlay(QWidget):
             self.start_point = event.pos()
             self.end_point = event.pos()
             self.selection_rect = QRect(self.start_point, self.end_point)
+            debug_print(f"Mouse press at: {self.start_point.x()}, {self.start_point.y()}")
             self.update()
     
     def mouseMoveEvent(self, event):
@@ -354,6 +392,8 @@ class SelectionOverlay(QWidget):
         """Handle mouse release to complete selection"""
         if event.button() == Qt.LeftButton and self.selecting:
             self.selecting = False
+            debug_print(f"Mouse release at: {self.end_point.x()}, {self.end_point.y()}")
+            debug_print(f"Selection rect: {self.selection_rect.x()}, {self.selection_rect.y()}, {self.selection_rect.width()}x{self.selection_rect.height()}")
             if not self.selection_rect.isNull() and self.selection_rect.width() > 5 and self.selection_rect.height() > 5:
                 self.hide()
                 self.selection_made.emit(self.selection_rect)
@@ -783,21 +823,21 @@ class ScreenOCRApp(QObject):
         }
         
         reason_name = reasons.get(reason, str(reason))
-        print(f"Tray activated: {reason_name}")
+        debug_print(f"Tray activated: {reason_name}")
         
         if reason == QSystemTrayIcon.DoubleClick or reason == QSystemTrayIcon.Trigger:
             # Left-click or double-click - start capture
-            print("  → Capturing screen")
+            debug_print("  → Capturing screen")
             self.start_capture()
         elif reason == QSystemTrayIcon.Context:
             # Right-click - show menu at cursor position
-            print("  → Showing context menu")
+            debug_print("  → Showing context menu")
             menu = self.tray_icon.contextMenu()
             if menu:
                 menu.popup(QCursor.pos())
         else:
             # Unknown activation - show control panel as fallback
-            print("  → Showing control panel (fallback)")
+            debug_print("  → Showing control panel (fallback)")
             window = self._create_control_window()
             window.show()
             window.raise_()
@@ -806,8 +846,8 @@ class ScreenOCRApp(QObject):
     def _setup_hotkey(self):
         """Setup global hotkey for screen capture using Qt timer polling"""
         if not KEYBOARD_AVAILABLE:
-            print("keyboard module not available. Hotkey will not work.")
-            print("Install with: pip install keyboard")
+            debug_print("keyboard module not available. Hotkey will not work.")
+            debug_print("Install with: pip install keyboard")
             self.tray_icon.showMessage(
                 "Hotkey Unavailable",
                 "keyboard module not installed. Use tray menu to capture.\nInstall with: pip install keyboard",
@@ -826,8 +866,8 @@ class ScreenOCRApp(QObject):
         # Check every 100ms
         self.hotkey_timer.start(100)
         
-        print(f"✓ Hotkey polling started for: {Config.HOTKEY}")
-        print("  (Using Qt-based timer, will not block UI)")
+        debug_print(f"✓ Hotkey polling started for: {Config.HOTKEY}")
+        debug_print("  (Using Qt-based timer, will not block UI)")
     
     def _check_hotkey_pressed(self):
         """Check if hotkey is pressed (called by Qt timer)"""
@@ -838,7 +878,7 @@ class ScreenOCRApp(QObject):
             if all_pressed and not self.hotkey_pressed:
                 # Hotkey was just pressed
                 self.hotkey_pressed = True
-                print(f"Hotkey triggered: {Config.HOTKEY}")
+                debug_print(f"Hotkey triggered: {Config.HOTKEY}")
                 # Call start_capture in the Qt main thread (it's already running in main thread)
                 self.start_capture()
             elif not all_pressed and self.hotkey_pressed:
@@ -859,23 +899,67 @@ class ScreenOCRApp(QObject):
 
     def _capture_screen_region(self, rect: QRect) -> QPixmap:
         """Capture a specific region of the screen"""
-        screen = QGuiApplication.primaryScreen()
-        
-        # If rect spans multiple screens, we need to capture from the correct screen
         screens = QGuiApplication.screens()
-        for s in screens:
-            if s.geometry().intersects(rect):
-                # Get the pixmap from this screen
-                pixmap = s.grabWindow(0, 
-                    rect.x() - s.geometry().x(),
-                    rect.y() - s.geometry().y(),
-                    rect.width(),
-                    rect.height()
-                )
-                return pixmap
         
-        # Fallback to primary screen
-        return screen.grabWindow(0, rect.x(), rect.y(), rect.width(), rect.height())
+        if not screens:
+            screen = QGuiApplication.primaryScreen()
+            return screen.grabWindow(0, rect.x(), rect.y(), rect.width(), rect.height())
+        
+        debug_print(f"\nSelection rect: x={rect.x()}, y={rect.y()}, w={rect.width()}, h={rect.height()}")
+        
+        # Find the screen with the MAXIMUM overlap with the selection rect
+        # This ensures we grab from the correct screen when selecting across monitors
+        best_screen = None
+        max_overlap = 0
+        
+        for idx, screen in enumerate(screens):
+            screen_geo = screen.geometry()
+            # Get the intersection between screen and selection
+            intersection = screen_geo.intersected(rect)
+            
+            if not intersection.isNull():
+                # Calculate overlap area
+                overlap_area = intersection.width() * intersection.height()
+                debug_print(f"  Screen {idx} (geo: {screen_geo.x()},{screen_geo.y()} {screen_geo.width()}x{screen_geo.height()}): overlap={overlap_area} sq pixels")
+                
+                if overlap_area > max_overlap:
+                    max_overlap = overlap_area
+                    best_screen = screen
+        
+        # If no intersection, try to find closest screen
+        if best_screen is None:
+            debug_print("No direct intersection. Finding closest screen...")
+            
+            # Find screen closest to selection center
+            selection_center_x = rect.x() + rect.width() // 2
+            min_distance = float('inf')
+            
+            for idx, screen in enumerate(screens):
+                screen_geo = screen.geometry()
+                screen_center_x = screen_geo.x() + screen_geo.width() // 2
+                distance = abs(selection_center_x - screen_center_x)
+                debug_print(f"  Screen {idx} center: {screen_center_x}, distance: {distance}")
+                
+                if distance < min_distance:
+                    min_distance = distance
+                    best_screen = screen
+        
+        if best_screen is None:
+            # No screens found at all
+            debug_print("ERROR: No screens found, using primary screen")
+            best_screen = QGuiApplication.primaryScreen()
+        
+        screen_geo = best_screen.geometry()
+        debug_print(f"✓ Capturing from screen at ({screen_geo.x()}, {screen_geo.y()})")
+        
+        # Calculate offsets relative to the selected screen
+        pixmap = best_screen.grabWindow(0,
+            rect.x() - screen_geo.x(),
+            rect.y() - screen_geo.y(),
+            rect.width(),
+            rect.height()
+        )
+        return pixmap
     
     def start_capture(self):
         """Start the screen capture process"""
@@ -911,6 +995,14 @@ class ScreenOCRApp(QObject):
                 3000
             )
             return
+        
+        # Save captured image for debugging
+        try:
+            capture_save_path = Path.cwd() / "last_capture.png"
+            captured_pixmap.save(str(capture_save_path), "PNG")
+            debug_print(f"✓ Screen capture saved to: {capture_save_path}")
+        except Exception as e:
+            debug_print(f"Warning: Failed to save capture image: {e}")
         
         # Perform OCR
         language = self.settings.get('language', Config.LANGUAGE)

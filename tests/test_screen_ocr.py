@@ -64,7 +64,7 @@ class TestOCREngine:
         return OCREngine()
     
     @pytest.fixture
-    def sample_image(self):
+    def sample_image(self, qapp):
         """Load sample test image"""
         test_image_path = Path(__file__).parent / "sample.png"
         if not test_image_path.exists():
@@ -72,6 +72,17 @@ class TestOCREngine:
         
         pixmap = QPixmap(str(test_image_path))
         assert not pixmap.isNull(), "Failed to load sample image"
+        return pixmap
+    
+    @pytest.fixture
+    def sample2_image(self, qapp):
+        """Load sample2 test image"""
+        test_image_path = Path(__file__).parent / "sample2.png"
+        if not test_image_path.exists():
+            pytest.skip(f"Sample2 image not found at {test_image_path}")
+        
+        pixmap = QPixmap(str(test_image_path))
+        assert not pixmap.isNull(), "Failed to load sample2 image"
         return pixmap
     
     def test_ocr_engine_initialization(self, ocr_engine):
@@ -130,7 +141,32 @@ class TestOCREngine:
         result = ocr_engine.process_image(sample_image, language="eng")
         assert isinstance(result, str)
     
-    def test_process_image_blank_pixmap(self, ocr_engine):
+    @pytest.mark.skipif(not TESSERACT_AVAILABLE, reason="Tesseract not installed")
+    def test_process_image_with_sample2(self, ocr_engine, sample2_image):
+        """Test OCR processing on sample2 image - known to fail
+        
+        Expected text: "this is wild"
+        This test reproduces the OCR failure for sample2.png.
+        """
+        result = ocr_engine.process_image(sample2_image, language="eng")
+        
+        # Basic validation - should return a string
+        assert isinstance(result, str), "OCR did not return a string"
+        
+        # Print the actual result for debugging
+        print(f"\\nSample2 OCR Result: {repr(result)}")
+        print(f"Result length: {len(result)} characters")
+        
+        # Check if result is empty or just whitespace (common failure mode)
+        if not result or result.isspace():
+            pytest.fail(f"OCR returned empty or whitespace-only result for sample2.png: {repr(result)}")
+        
+        # Check for the expected text "this is wild"
+        expected_text = "this is wild"
+        if expected_text.lower() not in result.lower():
+            pytest.fail(f"Expected text '{expected_text}' not found in OCR result: {repr(result)}")
+    
+    def test_process_image_blank_pixmap(self, ocr_engine, qapp):
         """Test processing a blank image"""
         # Create a blank white pixmap
         blank_pixmap = QPixmap(100, 100)
@@ -268,7 +304,7 @@ class TestIntegration:
     """Integration tests"""
     
     @pytest.mark.skipif(not TESSERACT_AVAILABLE, reason="Tesseract not installed")
-    def test_ocr_to_clipboard_workflow(self):
+    def test_ocr_to_clipboard_workflow(self, qapp):
         """Test complete OCR to clipboard workflow"""
         test_image_path = Path(__file__).parent / "sample.png"
         if not test_image_path.exists():
