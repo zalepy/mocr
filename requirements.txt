@@ -1,0 +1,19 @@
+# Screen OCR Tool - Requirements
+# Install with: pip install -r requirements.txt
+
+# GUI Framework
+PyQt5>=5.15.0
+
+# OCR Engine
+pytesseract>=0.3.10
+Pillow>=9.0.0
+
+# Global Hotkey Support
+keyboard>=0.13.5
+
+# Windows-specific clipboard enhancements (optional, Windows only)
+pywin32>=300; sys_platform == 'win32'
+# Testing
+pytest>=7.0.0
+pytest-cov>=4.0.0
+pytest-qt>=4.0.0
