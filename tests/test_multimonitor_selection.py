@@ -16,7 +16,8 @@ from PyQt5.QtWidgets import QApplication
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from screen_ocr import SelectionOverlay, ScreenOCRApp
+from mocr.ui import SelectionOverlay
+from mocr.app import ScreenOCRApp
 
 
 class MockScreen:
@@ -271,7 +272,7 @@ class TestOverlayWindowSpanning:
         mock_screen_1 = Mock()
         mock_screen_1.geometry.return_value = QRect(3840, 0, 1920, 1080)
         
-        with patch('screen_ocr.QGuiApplication.screens', return_value=[mock_screen_0, mock_screen_1]):
+        with patch('mocr.ui.QGuiApplication.screens', return_value=[mock_screen_0, mock_screen_1]):
             overlay = SelectionOverlay([])
             
             # Verify overlay geometry covers both screens
@@ -291,7 +292,7 @@ class TestOverlayWindowSpanning:
         mock_screen_1 = Mock()
         mock_screen_1.geometry.return_value = QRect(3840, 0, 1920, 1080)
         
-        with patch('screen_ocr.QGuiApplication.screens', return_value=[mock_screen_0, mock_screen_1]):
+        with patch('mocr.ui.QGuiApplication.screens', return_value=[mock_screen_0, mock_screen_1]):
             overlay = SelectionOverlay([])
             
             # Simulate mouse events on different screens

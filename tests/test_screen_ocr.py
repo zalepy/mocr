@@ -17,10 +17,11 @@ from unittest.mock import Mock, patch, MagicMock
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from screen_ocr import (
-    OCREngine, ClipboardManager, Config, WindowsIntegration,
-    TESSERACT_AVAILABLE, WIN32_AVAILABLE, KEYBOARD_AVAILABLE
-)
+from mocr.ocr import OCREngine, TESSERACT_AVAILABLE
+from mocr.clipboard import ClipboardManager
+from mocr.config import Config
+from mocr.utils import WindowsIntegration, WIN32_AVAILABLE, KEYBOARD_AVAILABLE
+from mocr.app import ScreenOCRApp
 
 from PyQt5.QtGui import QPixmap, QColor
 from PyQt5.QtCore import QBuffer
@@ -358,7 +359,7 @@ class TestHotkeyAndUI:
         
         This test ensures the timer is created but doesn't block UI.
         """
-        from screen_ocr import ScreenOCRApp
+        from mocr.app import ScreenOCRApp
         from PyQt5.QtWidgets import QApplication
         
         # Create app (will only work with Qt event loop)
@@ -378,7 +379,7 @@ class TestHotkeyAndUI:
         
         This test ensures the hotkey setup doesn't cause crashes or UI freezes.
         """
-        from screen_ocr import ScreenOCRApp
+        from mocr.app import ScreenOCRApp
         
         # Create app - if hotkey setup blocks, this will timeout
         app = ScreenOCRApp()
@@ -400,7 +401,7 @@ class TestHotkeyAndUI:
         
         This test simulates tray interaction to ensure it's not blocked by hotkey.
         """
-        from screen_ocr import ScreenOCRApp
+        from mocr.app import ScreenOCRApp
         from PyQt5.QtWidgets import QSystemTrayIcon
         
         app = ScreenOCRApp()
@@ -425,7 +426,7 @@ class TestHotkeyAndUI:
         
         100ms timer interval should not significantly impact UI responsiveness.
         """
-        from screen_ocr import ScreenOCRApp
+        from mocr.app import ScreenOCRApp
         import time
         
         app = ScreenOCRApp()

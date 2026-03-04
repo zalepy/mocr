@@ -42,7 +42,7 @@ def reset_clipboard_between_tests():
     """Reset clipboard state between tests to avoid interference"""
     yield
     # Cleanup after each test - clear the test data from clipboard
-    from screen_ocr import ClipboardManager
+    from mocr.clipboard import ClipboardManager
     try:
         ClipboardManager.copy_text("")
     except Exception:
