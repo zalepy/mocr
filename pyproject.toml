@@ -6,6 +6,8 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "keyboard>=0.13.5",
+    "numpy>=2.4.2",
+    "opencv-python>=4.13.0.92",
     "pillow>=9.0.0",
     "pyqt5>=5.15.0",
     "pytesseract>=0.3.10",
