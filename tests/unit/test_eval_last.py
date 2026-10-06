@@ -1,12 +1,11 @@
 """
-Unit tests for eval_last.py: strategy transforms are pure image functions;
-the OCR engine is mocked.
+Unit tests for eval_last.py (the CLI); the OCR engine is mocked.
+The shared transforms are tested in test_preprocess.py.
 """
 
 import pytest
 from unittest.mock import MagicMock, patch
 
-import numpy as np
 from PIL import Image, ImageDraw
 
 import eval_last
@@ -38,52 +37,19 @@ def mock_engine():
         yield engine
 
 
-class TestTransforms:
+class TestStrategies:
 
-    def test_strategy_names_unique(self):
+    def test_includes_app_strategies_plus_eval_only(self):
+        from mocr.preprocess import STRATEGIES as APP_STRATEGIES
         names = [s.name for s in STRATEGIES]
+        assert names[:len(APP_STRATEGIES)] == [s.name for s in APP_STRATEGIES]
+        assert "edges" in names
         assert len(names) == len(set(names))
 
-    @pytest.mark.parametrize("strategy", STRATEGIES, ids=lambda s: s.name)
-    def test_every_transform_returns_image(self, strategy, text_image):
-        result = strategy.transform(text_image)
-        assert isinstance(result, Image.Image)
-        assert result.width > 0 and result.height > 0
-
-    def test_raw_is_unchanged(self, text_image):
-        assert np.array_equal(np.array(eval_last.raw(text_image)), np.array(text_image))
-
-    @pytest.mark.parametrize("factor,size", [(0.5, (100, 30)), (2, (400, 120)), (3, (600, 180))])
-    def test_scale(self, text_image, factor, size):
-        assert eval_last.scale(factor)(text_image).size == size
-
-    def test_scale_never_zero(self):
-        assert eval_last.scale(0.01)(Image.new("RGB", (10, 10))).size == (1, 1)
-
-    def test_otsu_is_binary(self, text_image):
-        values = set(np.unique(np.array(eval_last.otsu_threshold(text_image))))
-        assert values <= {0, 255}
-
-    def test_thin_strokes_reduces_dark_pixels(self, text_image):
-        before = (np.array(eval_last.otsu_threshold(text_image)) == 0).sum()
-        after = (np.array(eval_last.thin_strokes(text_image)) == 0).sum()
-        assert 0 < after < before
-
-    def test_thin_strokes_normalizes_light_text_to_dark(self, text_image):
-        from PIL import ImageOps
-        light_on_dark = ImageOps.invert(text_image)
-        result = np.array(eval_last.thin_strokes(light_on_dark))
-        assert result.mean() > 127  # background is light
-
-    def test_pad_uses_edge_color(self, text_image):
-        padded = eval_last.pad(text_image, border=10)
-        assert padded.size == (220, 80)
-        assert padded.getpixel((0, 0)) == 255
-
-    def test_psm_strategies_carry_config(self):
-        configs = {s.name: s.tesseract_config for s in STRATEGIES}
-        assert configs["psm7"] == "--psm 7"
-        assert configs["default"] == ""
+    def test_edges_returns_image(self, text_image):
+        pytest.importorskip("cv2")
+        result = eval_last.edge_detection(text_image)
+        assert result.size == text_image.size
 
 
 class TestMain:
@@ -95,7 +61,7 @@ class TestMain:
 
         assert mock_engine.recognize.call_count == len(STRATEGIES)
         saved = sorted(p.name for p in out.iterdir())
-        assert saved[0] == "01_raw.png"
+        assert saved[0] == "01_auto_scale.png"
         assert len(saved) == len(STRATEGIES)
         output = capsys.readouterr().out
         assert "transform failed" not in output

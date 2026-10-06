@@ -54,7 +54,8 @@ pytest --cov --cov-report=html              # -> htmlcov/index.html
 - `test_app.py` - app controller with tray mocked (hotkey wiring, tray menu, quit)
 - `test_hotkey.py` - hotkey parsing and WM_HOTKEY handling with `RegisterHotKey` mocked
 - `test_multimonitor_selection.py` - screen selection and coordinate mapping with mock screens
-- `test_eval_last.py` - `eval_last.py` with the OCR engine mocked
+- `test_preprocess.py` - preprocessing transforms, line-height estimate and auto scale on synthetic images
+- `test_eval_last.py` - `eval_last.py` CLI with the OCR engine mocked
 
 ### E2E (`tests/e2e/`)
 - `test_ocr_tesseract.py` - real Tesseract on `sample.png` / `sample2.png`, OCR → clipboard workflow

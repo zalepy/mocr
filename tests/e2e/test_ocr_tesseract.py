@@ -107,6 +107,22 @@ class TestOCREngine:
         if expected_text.lower() not in result.lower():
             pytest.fail(f"Expected text '{expected_text}' not found in OCR result: {repr(result)}")
 
+    @pytest.mark.parametrize("sample, factor, expected", [
+        ("sample_image_path", 2, "Download the installer"),
+        ("sample_image_path", 0.5, "Download the installer"),
+        ("sample2_image_path", 2, "this is wild"),
+    ])
+    def test_auto_scale_handles_text_size(self, ocr_engine, request, sample, factor, expected):
+        """The same text rendered bigger/smaller (e.g. 200% display scaling) is still read.
+        At 2x the old default (grayscale + sharpen) detected nothing at all."""
+        from PIL import Image
+        img = Image.open(request.getfixturevalue(sample)).convert("RGB")
+        img = img.resize((round(img.width * factor), round(img.height * factor)), Image.LANCZOS)
+
+        result = ocr_engine.process_pil_image(img, "eng", "auto_scale")
+
+        assert expected.lower() in result.lower(), repr(result)
+
     def test_process_image_blank_pixmap(self, ocr_engine, qapp):
         """Test processing a blank image"""
         # Create a blank white pixmap

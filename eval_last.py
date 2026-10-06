@@ -9,106 +9,32 @@ Tesseract as-is, without the app's default grayscale + sharpen on top.
 Usage:
     python eval_last.py                       # evaluates last_capture.png
     python eval_last.py some.png --out eval_out --lang eng
-    python eval_last.py --only raw,default,downscale_50
+    python eval_last.py --only raw,default,auto_scale
     python eval_last.py --list
 """
 
 import argparse
 import sys
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable
 
-import cv2
-import numpy as np
-from PIL import Image, ImageOps
+from PIL import Image
 
 from mocr.ocr import OCREngine
-
-
-@dataclass(frozen=True)
-class Strategy:
-    name: str
-    label: str
-    transform: Callable[[Image.Image], Image.Image]
-    tesseract_config: str = ""
-
-
-# --- transforms (PIL image in, PIL image out) ---
-
-def raw(img):
-    """No preprocessing at all: baseline"""
-    return img.convert("RGB")
-
-
-_app_preprocess = OCREngine.preprocess
-
-
-def default(img):
-    """What the app does today: grayscale + sharpen"""
-    return _app_preprocess(img)
-
-
-def _gray_array(img):
-    return np.array(ImageOps.grayscale(img))
-
-
-def otsu_threshold(img):
-    _, thresh = cv2.threshold(_gray_array(img), 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    return Image.fromarray(thresh)
+from mocr.preprocess import STRATEGIES as APP_STRATEGIES, Strategy
 
 
 def edge_detection(img):
-    # Black lines on white background often works better for OCR
-    edges = cv2.Canny(_gray_array(img), 50, 150)
+    """Canny edges as black lines on white. Eval-only: needs OpenCV (eval group)"""
+    import cv2
+    import numpy as np
+    from PIL import ImageOps
+    edges = cv2.Canny(np.array(ImageOps.grayscale(img)), 50, 150)
     return Image.fromarray(cv2.bitwise_not(edges))
 
 
-def invert(img):
-    """Helpful if text is light on dark background"""
-    return ImageOps.invert(img.convert("RGB"))
-
-
-def scale(factor):
-    def _scale(img):
-        gray = ImageOps.grayscale(img)
-        size = (max(1, round(gray.width * factor)), max(1, round(gray.height * factor)))
-        return gray.resize(size, Image.LANCZOS)
-    return _scale
-
-
-def thin_strokes(img):
-    """Binarize, make text dark on light, then grow the background to thin bold strokes"""
-    binary = np.array(otsu_threshold(img))
-    if binary.mean() < 127:  # mostly dark -> light text on dark background
-        binary = cv2.bitwise_not(binary)
-    kernel = np.ones((3, 3), np.uint8)
-    return Image.fromarray(cv2.dilate(binary, kernel, iterations=1))
-
-
-def pad(img, border=20):
-    """Add a border in the image's own edge color; Tesseract dislikes text touching the edge"""
-    gray = ImageOps.grayscale(img)
-    a = np.array(gray)
-    edge = np.concatenate([a[0, :], a[-1, :], a[:, 0], a[:, -1]])
-    return ImageOps.expand(gray, border=border, fill=int(np.median(edge)))
-
-
-STRATEGIES = [
-    Strategy("raw", "Raw (no preprocessing)", raw),
-    Strategy("default", "Default (app: grayscale + sharpen)", default),
-    Strategy("otsu", "Grayscale + Otsu threshold", otsu_threshold),
-    Strategy("edges", "Canny edge detection", edge_detection),
-    Strategy("invert", "Color inversion", invert),
-    Strategy("downscale_50", "Downscale 0.5x (large/bold text)", scale(0.5)),
-    Strategy("downscale_33", "Downscale 0.33x (large/bold text)", scale(1 / 3)),
-    Strategy("upscale_2x", "Upscale 2x (small text)", scale(2)),
-    Strategy("upscale_3x", "Upscale 3x (small text)", scale(3)),
-    Strategy("thin_strokes", "Otsu + thin strokes (bold text)", thin_strokes),
-    Strategy("pad", "Grayscale + 20px border", pad),
-    Strategy("psm6", "Default + --psm 6 (uniform block)", default, "--psm 6"),
-    Strategy("psm7", "Default + --psm 7 (single line)", default, "--psm 7"),
-    Strategy("psm11", "Default + --psm 11 (sparse text)", default, "--psm 11"),
+# The app's strategies (mocr.preprocess) plus experiments not shipped in the app
+STRATEGIES = APP_STRATEGIES + [
+    Strategy("edges", "Canny edge detection (eval only)", edge_detection),
 ]
 
 

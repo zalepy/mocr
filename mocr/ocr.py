@@ -1,6 +1,6 @@
 import os
 import io
-from PIL import Image, ImageOps, ImageFilter
+from PIL import Image
 try:
     import pytesseract
     TESSERACT_AVAILABLE = True
@@ -11,6 +11,7 @@ from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import QBuffer
 
 from .config import Config
+from .preprocess import STRATEGIES_BY_NAME
 
 class OCREngine:
     """OCR processing engine using Tesseract"""
@@ -40,13 +41,14 @@ class OCREngine:
                 pytesseract.pytesseract.tesseract_cmd = path
                 break
     
-    def process_image(self, image: QPixmap, language: str = None) -> str:
+    def process_image(self, image: QPixmap, language: str = None, strategy: str = None) -> str:
         """
         Process a QPixmap image and return extracted text.
         
         Args:
             image: QPixmap containing the captured screen region
             language: OCR language code (e.g., 'eng', 'chi_sim')
+            strategy: preprocessing strategy name (default: Config.OCR_STRATEGY)
         
         Returns:
             Extracted text string
@@ -66,18 +68,19 @@ class OCREngine:
             bytes_buffer = io.BytesIO(buffer_bytes)
             pil_image = Image.open(bytes_buffer)
             
-            return self.process_pil_image(pil_image, language)
+            return self.process_pil_image(pil_image, language, strategy)
             
         except Exception as e:
             return f"ERROR: OCR processing failed: {str(e)}"
 
-    def process_file(self, file_path: str, language: str = None) -> str:
+    def process_file(self, file_path: str, language: str = None, strategy: str = None) -> str:
         """
         Process an image file and return extracted text.
         
         Args:
             file_path: Path to the image file
             language: OCR language code (e.g., 'eng', 'chi_sim')
+            strategy: preprocessing strategy name (default: Config.OCR_STRATEGY)
         
         Returns:
             Extracted text string
@@ -87,30 +90,27 @@ class OCREngine:
             
         try:
             pil_image = Image.open(file_path)
-            return self.process_pil_image(pil_image, language)
+            return self.process_pil_image(pil_image, language, strategy)
         except Exception as e:
             return f"ERROR: Failed to open image file: {str(e)}"
 
-    def process_pil_image(self, pil_image: Image.Image, language: str = None) -> str:
+    def process_pil_image(self, pil_image: Image.Image, language: str = None, strategy: str = None) -> str:
         """
-        Process a PIL Image and return extracted text.
-        
-        Applies the default preprocessing (see `preprocess`) and runs OCR.
+        Preprocess a PIL Image with a strategy (see mocr.preprocess) and run OCR.
         
         Args:
             pil_image: PIL Image object
             language: OCR language code (e.g., 'eng', 'chi_sim')
+            strategy: preprocessing strategy name (default: Config.OCR_STRATEGY)
         
         Returns:
             Extracted text string
         """
-        return self.recognize(self.preprocess(pil_image), language)
-
-    @staticmethod
-    def preprocess(pil_image: Image.Image) -> Image.Image:
-        """Default preprocessing to improve OCR accuracy: grayscale, then sharpen"""
-        processed_image = ImageOps.grayscale(pil_image)
-        return processed_image.filter(ImageFilter.SHARPEN)
+        name = strategy or Config.OCR_STRATEGY
+        chosen = STRATEGIES_BY_NAME.get(name)
+        if chosen is None:
+            return f"ERROR: Unknown preprocessing strategy: {name}"
+        return self.recognize(chosen.transform(pil_image), language, chosen.tesseract_config)
 
     def recognize(self, pil_image: Image.Image, language: str = None, config: str = "") -> str:
         """

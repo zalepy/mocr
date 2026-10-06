@@ -101,6 +101,12 @@ This will print information about:
 - **Double-click tray icon**: Start capture
 - **Right-click tray icon → Capture Screen**: Start capture
 
+### Re-OCR the Last Capture
+
+If the text came out wrong, right-click the tray icon → **Re-OCR last capture with** and pick another preprocessing strategy (e.g. upscale for tiny text, downscale for big headings, invert, `--psm 7` for a single line). It re-reads the saved `last_capture.png`, copies the new result as usual, and always shows a preview notification so you can compare.
+
+By default captures go through **Auto scale**: it measures the text line height in the image and up- or downscales it to the ~22 px Tesseract reads best. This matters on high-DPI displays, where captures are in device pixels (2x at 200%) and big text can otherwise come back as "No text detected". The default is `Config.OCR_STRATEGY`; strategies live in `mocr/preprocess.py`.
+
 ### Changing Settings
 
 Right-click the tray icon and select "Settings..." to:
@@ -116,11 +122,11 @@ Every capture is saved as `last_capture.png`. When OCR gets it wrong, compare pr
 
 ```bash
 uv run python eval_last.py                  # all strategies on last_capture.png
-uv run python eval_last.py other.png --only raw,default,upscale_2x
+uv run python eval_last.py other.png --only raw,default,auto_scale
 uv run python eval_last.py --list           # available strategies
 ```
 
-For each strategy it saves the image Tesseract actually sees to `eval_out/` and prints the text and Tesseract's mean confidence, with a summary table at the end. Compare by eye.
+For each strategy it saves the image Tesseract actually sees to `eval_out/` and prints the text and Tesseract's mean confidence, with a summary table at the end. Compare by eye. It runs the app's strategies from `mocr/preprocess.py` plus eval-only experiments (Canny edges, which needs OpenCV).
 
 ## Hotkeys
 
@@ -156,6 +162,7 @@ class Config:
     # OCR Settings
     TESSERACT_PATH = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
     LANGUAGE = "eng"  # Default OCR language
+    OCR_STRATEGY = "auto_scale"  # Preprocessing; see mocr/preprocess.py
     
     # Selection overlay settings
     SELECTION_COLOR = QColor(0, 120, 215, 200)  # Windows blue
@@ -214,6 +221,8 @@ mocr/
 │   ├── app.py           #   tray app controller, capture flow
 │   ├── ui.py            #   selection overlay, result and settings dialogs
 │   ├── ocr.py           #   Tesseract OCR engine
+│   ├── preprocess.py    #   preprocessing strategies (auto scale, threshold, ...)
+│   ├── hotkey.py        #   global hotkey (RegisterHotKey)
 │   ├── clipboard.py     #   clipboard handling
 │   ├── config.py        #   Config defaults
 │   └── utils.py         #   debug logging, helpers

@@ -15,6 +15,7 @@ from .ocr import OCREngine
 from .clipboard import ClipboardManager
 from .hotkey import GlobalHotkey
 from .ui import SelectionOverlay, ResultDialog, SettingsDialog
+from .preprocess import STRATEGIES
 from . import __version__
 
 # User settings persisted across restarts, with their defaults.
@@ -25,6 +26,9 @@ PERSISTED_SETTINGS = {
     'show_dialog': False,
     'show_notifications': False,
 }
+
+# Every capture is saved here (cwd = repo root under start.ps1), for re-OCR and eval_last.py
+LAST_CAPTURE_FILE = "last_capture.png"
 
 class ScreenOCRApp(QObject):
     """Main application controller"""
@@ -123,6 +127,16 @@ class ScreenOCRApp(QObject):
         capture_action.setToolTip("Capture and OCR a screen region\n(Shortcut: Ctrl+Alt+Print Screen)")
         capture_action.triggered.connect(self.start_capture)
         tray_menu.addAction(capture_action)
+        
+        # Re-run OCR on the saved capture with another preprocessing strategy
+        reocr_menu = tray_menu.addMenu("🔁 Re-OCR last capture with")
+        for strategy in STRATEGIES:
+            label = strategy.label
+            if strategy.name == Config.OCR_STRATEGY:
+                label += "  (default)"
+            action = QAction(label, reocr_menu)
+            action.triggered.connect(lambda _checked=False, name=strategy.name: self.reocr_last_capture(name))
+            reocr_menu.addAction(action)
         
         tray_menu.addSeparator()
         
@@ -309,11 +323,11 @@ class ScreenOCRApp(QObject):
             )
             return
         
-        # Save captured image for debugging / eval_last.py
+        # Save captured image for re-OCR / eval_last.py
         # Closed question (2026-10-06): every capture is written to disk on
         # purpose. The privacy trade-off is known and accepted; don't gate it.
         try:
-            capture_save_path = Path.cwd() / "last_capture.png"
+            capture_save_path = Path.cwd() / LAST_CAPTURE_FILE
             captured_pixmap.save(str(capture_save_path), "PNG")
             debug_print(f"✓ Screen capture saved to: {capture_save_path}")
         except Exception as e:
@@ -322,8 +336,35 @@ class ScreenOCRApp(QObject):
         # Perform OCR
         language = self.settings.get('language', Config.LANGUAGE)
         ocr_text = self.ocr_engine.process_image(captured_pixmap, language)
+        self._deliver_result(ocr_text)
+    
+    def reocr_last_capture(self, strategy_name: str):
+        """Run OCR again on the saved last capture with another preprocessing strategy"""
+        capture_path = Path.cwd() / LAST_CAPTURE_FILE
+        if not capture_path.exists():
+            self.tray_icon.showMessage(
+                "No Capture",
+                "No saved capture to re-OCR yet. Capture a region first.",
+                QSystemTrayIcon.Information,
+                2000
+            )
+            return
         
-        # Store result
+        language = self.settings.get('language', Config.LANGUAGE)
+        debug_print(f"Re-OCR {capture_path} with strategy: {strategy_name}")
+        ocr_text = self.ocr_engine.process_file(str(capture_path), language, strategy_name)
+        if self._deliver_result(ocr_text):
+            # Always show a preview: the point of re-OCR is comparing results
+            preview = ocr_text if len(ocr_text) <= 200 else ocr_text[:200] + "…"
+            self.tray_icon.showMessage(
+                f"Re-OCR: {strategy_name}",
+                preview,
+                QSystemTrayIcon.Information,
+                5000
+            )
+    
+    def _deliver_result(self, ocr_text: str) -> bool:
+        """Store, copy and show an OCR result per settings; False if OCR failed"""
         self.last_result = ocr_text
         
         # Check for errors
@@ -334,7 +375,7 @@ class ScreenOCRApp(QObject):
                 QSystemTrayIcon.Critical,
                 5000
             )
-            return
+            return False
         
         # Handle result
         if self.settings.get('auto_copy', True):
@@ -350,6 +391,7 @@ class ScreenOCRApp(QObject):
         if self.settings.get('show_dialog', False):
             dialog = ResultDialog(ocr_text)
             dialog.exec_()
+        return True
     
     def _on_selection_cancelled(self):
         """Handle selection cancellation"""

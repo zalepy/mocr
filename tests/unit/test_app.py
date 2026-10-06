@@ -55,6 +55,22 @@ class TestTrayMenu:
         assert any("Capture" in label for label in labels)
         assert any("Exit" in label for label in labels)
 
+    def test_reocr_submenu_lists_strategies(self, ocr_app, mock_tray):
+        from mocr.preprocess import STRATEGIES
+        menu = mock_tray.setContextMenu.call_args.args[0]
+        reocr = next(a.menu() for a in menu.actions() if a.menu() and "Re-OCR" in a.text())
+        labels = [a.text() for a in reocr.actions()]
+        assert len(labels) == len(STRATEGIES)
+        assert sum("(default)" in label for label in labels) == 1
+
+    def test_reocr_action_passes_strategy_name(self, ocr_app, mock_tray):
+        ocr_app.reocr_last_capture = MagicMock()
+        menu = mock_tray.setContextMenu.call_args.args[0]
+        reocr = next(a.menu() for a in menu.actions() if a.menu() and "Re-OCR" in a.text())
+        reocr.actions()[2].trigger()
+        from mocr.preprocess import STRATEGIES
+        ocr_app.reocr_last_capture.assert_called_once_with(STRATEGIES[2].name)
+
     def test_show_last_result_without_result_notifies(self, ocr_app, mock_tray):
         mock_tray.showMessage.reset_mock()
         ocr_app.show_last_result()

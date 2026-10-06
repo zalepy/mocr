@@ -8,6 +8,9 @@ class Config:
     # OCR Settings
     TESSERACT_PATH = r"C:\Program Files\Tesseract-OCR\tesseract.exe"  # Default Windows path
     LANGUAGE = "eng"  # OCR language
+    # Preprocessing strategy for captures (a name from mocr.preprocess.STRATEGIES).
+    # The tray's "Re-OCR last capture with" menu tries the others.
+    OCR_STRATEGY = "auto_scale"
     
     # Selection overlay settings
     SELECTION_COLOR = QColor(0, 120, 215, 200)  # Windows blue

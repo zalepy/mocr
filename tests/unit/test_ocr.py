@@ -95,3 +95,40 @@ class TestRecognizeAndConfidence:
     def test_mean_confidence_error(self, rgb_image):
         with patch("mocr.ocr.pytesseract.image_to_data", side_effect=RuntimeError("boom")):
             assert OCREngine().mean_confidence(rgb_image) == -1.0
+
+
+class TestStrategySelection:
+    """process_pil_image applies the named preprocessing strategy before Tesseract"""
+
+    @pytest.fixture
+    def rgb_image(self):
+        from PIL import Image
+        return Image.new("RGB", (40, 20), "white")
+
+    def test_uses_config_strategy_by_default(self, rgb_image, monkeypatch):
+        import mocr.ocr
+        from mocr.preprocess import Strategy
+        monkeypatch.setitem(mocr.ocr.STRATEGIES_BY_NAME, "fake",
+                            Strategy("fake", "Fake", lambda img: "transformed"))
+        monkeypatch.setattr(mocr.ocr.Config, "OCR_STRATEGY", "fake")
+        with patch("mocr.ocr.pytesseract.image_to_string", return_value="x") as ocr:
+            OCREngine().process_pil_image(rgb_image, "eng")
+        assert ocr.call_args.args[0] == "transformed"
+
+    def test_named_strategy_passes_tesseract_config(self, rgb_image):
+        with patch("mocr.ocr.pytesseract.image_to_string", return_value="x") as ocr:
+            OCREngine().process_pil_image(rgb_image, "eng", "psm7")
+        assert ocr.call_args.kwargs["config"] == "--psm 7"
+
+    def test_raw_strategy_sends_image_unchanged(self, rgb_image):
+        with patch("mocr.ocr.pytesseract.image_to_string", return_value="x") as ocr:
+            OCREngine().process_pil_image(rgb_image, "eng", "raw")
+        assert ocr.call_args.args[0].tobytes() == rgb_image.tobytes()
+
+    def test_unknown_strategy_is_an_error(self, rgb_image):
+        result = OCREngine().process_pil_image(rgb_image, "eng", "nope")
+        assert result.startswith("ERROR") and "nope" in result
+
+    def test_config_default_strategy_exists(self):
+        import mocr.ocr
+        assert mocr.ocr.Config.OCR_STRATEGY in mocr.ocr.STRATEGIES_BY_NAME

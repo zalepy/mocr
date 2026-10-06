@@ -205,3 +205,51 @@ class TestSettingsAndTray:
         mock_tray.showMessage.reset_mock()
         ocr_app._on_selection_cancelled()
         assert mock_tray.showMessage.call_args.args[0] == "Capture Cancelled"
+
+
+class TestReocrLastCapture:
+
+    def test_reocr_runs_strategy_on_saved_capture(self, ocr_app, mock_tray, copy_text, in_tmp_cwd, white_pixmap):
+        white_pixmap.save(str(in_tmp_cwd / "last_capture.png"), "PNG")
+        ocr_app.ocr_engine = MagicMock()
+        ocr_app.ocr_engine.process_file.return_value = "better text"
+        mock_tray.showMessage.reset_mock()
+
+        ocr_app.reocr_last_capture("upscale_2x")
+
+        ocr_app.ocr_engine.process_file.assert_called_once_with(
+            str(in_tmp_cwd / "last_capture.png"), "eng", "upscale_2x")
+        copy_text.assert_called_once_with("better text")
+        assert ocr_app.last_result == "better text"
+        # Preview is shown even with notifications off
+        assert mock_tray.showMessage.call_args.args[:2] == ("Re-OCR: upscale_2x", "better text")
+
+    def test_reocr_without_capture(self, ocr_app, mock_tray, copy_text, in_tmp_cwd):
+        ocr_app.ocr_engine = MagicMock()
+        mock_tray.showMessage.reset_mock()
+
+        ocr_app.reocr_last_capture("raw")
+
+        ocr_app.ocr_engine.process_file.assert_not_called()
+        assert mock_tray.showMessage.call_args.args[0] == "No Capture"
+
+    def test_reocr_error_is_reported(self, ocr_app, mock_tray, copy_text, in_tmp_cwd, white_pixmap):
+        white_pixmap.save(str(in_tmp_cwd / "last_capture.png"), "PNG")
+        ocr_app.ocr_engine = MagicMock()
+        ocr_app.ocr_engine.process_file.return_value = "ERROR: boom"
+        mock_tray.showMessage.reset_mock()
+
+        ocr_app.reocr_last_capture("raw")
+
+        copy_text.assert_not_called()
+        assert mock_tray.showMessage.call_args.args[0] == "OCR Error"
+
+    def test_long_preview_is_truncated(self, ocr_app, mock_tray, copy_text, in_tmp_cwd, white_pixmap):
+        white_pixmap.save(str(in_tmp_cwd / "last_capture.png"), "PNG")
+        ocr_app.ocr_engine = MagicMock()
+        ocr_app.ocr_engine.process_file.return_value = "x" * 500
+
+        ocr_app.reocr_last_capture("raw")
+
+        preview = mock_tray.showMessage.call_args.args[1]
+        assert len(preview) == 201 and preview.endswith("…")
