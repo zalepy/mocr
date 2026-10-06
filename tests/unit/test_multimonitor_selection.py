@@ -6,15 +6,11 @@ regardless of how many monitors exist or their positioning in virtual desktop.
 """
 
 import pytest
-import sys
-from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock
 from PyQt5.QtCore import QRect, QPoint
 from PyQt5.QtGui import QGuiApplication
 from PyQt5.QtWidgets import QApplication
 
-# Add parent directory to path
-sys.path.insert(0, str(Path(__file__).parents[2]))
 
 from mocr.ui import SelectionOverlay
 from mocr.app import ScreenOCRApp

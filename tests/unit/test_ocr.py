@@ -3,11 +3,8 @@ Unit tests for the OCR engine with Tesseract mocked out
 """
 
 import pytest
-import sys
-from pathlib import Path
 from unittest.mock import patch
 
-sys.path.insert(0, str(Path(__file__).parents[2]))
 
 from mocr.ocr import OCREngine, TESSERACT_AVAILABLE
 
@@ -68,3 +65,33 @@ class TestOCREngine:
     def test_process_file_missing(self, ocr_engine, tmp_path):
         result = ocr_engine.process_file(str(tmp_path / "nope.png"))
         assert result.startswith("ERROR: File not found")
+
+
+class TestRecognizeAndConfidence:
+    """recognize() runs Tesseract on the image as-is; mean_confidence() averages word confidences"""
+
+    @pytest.fixture
+    def rgb_image(self):
+        from PIL import Image
+        return Image.new("RGB", (40, 20), "white")
+
+    def test_recognize_does_not_preprocess(self, rgb_image):
+        with patch("mocr.ocr.pytesseract.image_to_string", return_value="x") as ocr:
+            OCREngine().recognize(rgb_image, "eng", "--psm 7")
+
+        assert ocr.call_args.args[0] is rgb_image
+        assert ocr.call_args.kwargs == {"lang": "eng", "config": "--psm 7"}
+
+    def test_mean_confidence_ignores_empty_and_negative(self, rgb_image):
+        data = {"conf": ["-1", "90", "80", "50"], "text": ["", "hello", "world", " "]}
+        with patch("mocr.ocr.pytesseract.image_to_data", return_value=data):
+            assert OCREngine().mean_confidence(rgb_image) == 85.0
+
+    def test_mean_confidence_nothing_recognized(self, rgb_image):
+        data = {"conf": ["-1"], "text": [""]}
+        with patch("mocr.ocr.pytesseract.image_to_data", return_value=data):
+            assert OCREngine().mean_confidence(rgb_image) == -1.0
+
+    def test_mean_confidence_error(self, rgb_image):
+        with patch("mocr.ocr.pytesseract.image_to_data", side_effect=RuntimeError("boom")):
+            assert OCREngine().mean_confidence(rgb_image) == -1.0

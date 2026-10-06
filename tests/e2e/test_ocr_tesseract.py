@@ -3,10 +3,7 @@ E2E tests for OCR using the real Tesseract binary and sample images
 """
 
 import pytest
-import sys
-from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parents[2]))
 
 from mocr.ocr import OCREngine, TESSERACT_AVAILABLE
 from mocr.clipboard import ClipboardManager
@@ -88,10 +85,9 @@ class TestOCREngine:
         assert isinstance(result, str)
 
     def test_process_image_with_sample2(self, ocr_engine, sample2_image):
-        """Test OCR processing on sample2 image - known to fail
+        """Test OCR processing on sample2 image (used to fail; kept as a regression test)
 
         Expected text: "this is wild"
-        This test reproduces the OCR failure for sample2.png.
         """
         result = ocr_engine.process_image(sample2_image, language="eng")
 

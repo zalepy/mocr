@@ -10,3 +10,9 @@ wheels/
 .venv
 # Debug files
 last_capture.png
+eval_out/
+# Test / coverage output
+.coverage
+htmlcov/
+coverage.xml
+.pytest_cache/

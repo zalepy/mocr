@@ -145,33 +145,44 @@ wheels = [
 
 [[package]]
 name = "mocr"
-version = "0.1.0"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "keyboard" },
-    { name = "numpy" },
-    { name = "opencv-python" },
     { name = "pillow" },
     { name = "pyqt5" },
     { name = "pytesseract" },
+    { name = "pywin32", marker = "sys_platform == 'win32'" },
+]
+
+[package.dev-dependencies]
+dev = [
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "pytest-qt" },
-    { name = "pywin32", marker = "sys_platform == 'win32'" },
+]
+eval = [
+    { name = "numpy" },
+    { name = "opencv-python" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "keyboard", specifier = ">=0.13.5" },
-    { name = "numpy", specifier = ">=2.4.2" },
-    { name = "opencv-python", specifier = ">=4.13.0.92" },
     { name = "pillow", specifier = ">=9.0.0" },
     { name = "pyqt5", specifier = ">=5.15.0" },
     { name = "pytesseract", specifier = ">=0.3.10" },
+    { name = "pywin32", marker = "sys_platform == 'win32'", specifier = ">=300" },
+]
+
+[package.metadata.requires-dev]
+dev = [
     { name = "pytest", specifier = ">=7.0.0" },
     { name = "pytest-cov", specifier = ">=4.0.0" },
     { name = "pytest-qt", specifier = ">=4.0.0" },
-    { name = "pywin32", marker = "sys_platform == 'win32'", specifier = ">=300" },
+]
+eval = [
+    { name = "numpy", specifier = ">=2.4.2" },
+    { name = "opencv-python", specifier = ">=4.13.0.92" },
 ]
 
 [[package]]

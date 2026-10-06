@@ -5,10 +5,7 @@ These show the tray icon and its "started" notification.
 """
 
 import pytest
-import sys
-from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parents[2]))
 
 from mocr.utils import KEYBOARD_AVAILABLE
 

@@ -95,12 +95,34 @@ class OCREngine:
         """
         Process a PIL Image and return extracted text.
         
+        Applies the default preprocessing (see `preprocess`) and runs OCR.
+        
         Args:
             pil_image: PIL Image object
             language: OCR language code (e.g., 'eng', 'chi_sim')
         
         Returns:
             Extracted text string
+        """
+        return self.recognize(self.preprocess(pil_image), language)
+
+    @staticmethod
+    def preprocess(pil_image: Image.Image) -> Image.Image:
+        """Default preprocessing to improve OCR accuracy: grayscale, then sharpen"""
+        processed_image = ImageOps.grayscale(pil_image)
+        return processed_image.filter(ImageFilter.SHARPEN)
+
+    def recognize(self, pil_image: Image.Image, language: str = None, config: str = "") -> str:
+        """
+        Run Tesseract on an image as-is (no preprocessing).
+        
+        Args:
+            pil_image: PIL Image object
+            language: OCR language code (e.g., 'eng', 'chi_sim')
+            config: extra Tesseract options, e.g. '--psm 7'
+        
+        Returns:
+            Extracted text string, or a message starting with "ERROR" / "(No text"
         """
         if not TESSERACT_AVAILABLE:
             return "ERROR: pytesseract not installed."
@@ -109,15 +131,7 @@ class OCREngine:
             language = Config.LANGUAGE
             
         try:
-            # Preprocessing to improve OCR accuracy
-            # 1. Convert to grayscale
-            processed_image = ImageOps.grayscale(pil_image)
-            
-            # 2. Sharpen the image
-            processed_image = processed_image.filter(ImageFilter.SHARPEN)
-            
-            # Perform OCR
-            text = pytesseract.image_to_string(processed_image, lang=language)
+            text = pytesseract.image_to_string(pil_image, lang=language, config=config)
             
             # Clean up the text
             text = text.strip()
@@ -131,3 +145,26 @@ class OCREngine:
             return "ERROR: Tesseract OCR not found.\nPlease install from: https://github.com/UB-Mannheim/tesseract/wiki\nAnd ensure the path is correct in Config.TESSERACT_PATH"
         except Exception as e:
             return f"ERROR: OCR processing failed: {str(e)}"
+
+    def mean_confidence(self, pil_image: Image.Image, language: str = None, config: str = "") -> float:
+        """
+        Mean Tesseract word confidence (0-100) for an image as-is, or -1 if
+        nothing was recognized or OCR failed. A hint, not ground truth.
+        """
+        if not TESSERACT_AVAILABLE:
+            return -1.0
+        if language is None:
+            language = Config.LANGUAGE
+        try:
+            data = pytesseract.image_to_data(
+                pil_image, lang=language, config=config, output_type=pytesseract.Output.DICT
+            )
+        except Exception:
+            return -1.0
+        confidences = [
+            float(conf) for conf, word in zip(data["conf"], data["text"])
+            if float(conf) >= 0 and word.strip()
+        ]
+        if not confidences:
+            return -1.0
+        return sum(confidences) / len(confidences)

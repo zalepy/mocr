@@ -6,7 +6,7 @@ class Config:
     HOTKEY = "ctrl+alt+prtscn"
     
     # OCR Settings
-    TESSERACT_PATH = r"C:\\Program Files\\Tesseract-OCR\\tesseract.exe"  # Default Windows path
+    TESSERACT_PATH = r"C:\Program Files\Tesseract-OCR\tesseract.exe"  # Default Windows path
     LANGUAGE = "eng"  # OCR language
     
     # Selection overlay settings

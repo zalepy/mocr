@@ -3,10 +3,7 @@ Unit tests for the ScreenOCRApp controller with the tray and keyboard mocked out
 """
 
 import pytest
-import sys
-from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parents[2]))
 
 from mocr.config import Config
 from mocr.utils import KEYBOARD_AVAILABLE
@@ -60,3 +57,39 @@ class TestTrayMenu:
         mock_tray.showMessage.reset_mock()
         ocr_app.show_last_result()
         assert mock_tray.showMessage.call_args.args[0] == "No Result"
+
+
+class TestSettingsPersistence:
+    """Settings survive a restart (temp INI store, never the registry)"""
+
+    def test_defaults_when_nothing_stored(self, ocr_app):
+        assert ocr_app.settings["language"] == "eng"
+        assert ocr_app.settings["auto_copy"] is True
+        assert ocr_app.settings["show_dialog"] is False
+        assert ocr_app.settings["show_notifications"] is False
+
+    def test_changes_survive_restart(self, ocr_app, settings_store, mock_tray):
+        import mocr.app
+        ocr_app._on_settings_changed({"language": "deu", "auto_copy": False,
+                                      "show_dialog": True, "show_notifications": True})
+        ocr_app._stop_hotkey_polling()
+
+        restarted = mocr.app.ScreenOCRApp(settings_store=settings_store)
+        try:
+            assert restarted.settings["language"] == "deu"
+            assert restarted.settings["auto_copy"] is False
+            assert restarted.settings["show_dialog"] is True
+            assert restarted.settings["show_notifications"] is True
+            assert mocr.app.Config.LANGUAGE == "deu"
+        finally:
+            restarted._stop_hotkey_polling()
+
+    def test_unsupported_stored_language_falls_back(self, qapp, mock_tray, settings_store, monkeypatch):
+        import mocr.app
+        monkeypatch.setattr(mocr.app.Config, "LANGUAGE", "eng")
+        settings_store.setValue("language", "klingon")
+        app = mocr.app.ScreenOCRApp(settings_store=settings_store)
+        try:
+            assert app.settings["language"] == "eng"
+        finally:
+            app._stop_hotkey_polling()

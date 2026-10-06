@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Setup script for Screen OCR Tool
-Run this to check dependencies and configure the application.
+Environment check for Screen OCR Tool
+Run this to check dependencies (python check_env.py). Not a setuptools script.
 """
 
 import sys
@@ -14,8 +14,8 @@ def check_python_version():
     version = sys.version_info
     print(f"Python version: {version.major}.{version.minor}.{version.micro}")
     
-    if version.major < 3 or (version.major == 3 and version.minor < 8):
-        print("❌ Python 3.8+ is required!")
+    if version.major < 3 or (version.major == 3 and version.minor < 11):
+        print("❌ Python 3.11+ is required!")
         return False
     
     print("✓ Python version OK")
@@ -81,7 +81,7 @@ def check_python_packages():
     
     if not all_installed:
         print("\nTo install missing packages, run:")
-        print("  pip install -r requirements.txt")
+        print("  uv sync   (or: pip install -e .)")
     
     return all_installed
 
@@ -165,7 +165,7 @@ def main():
     if all_passed:
         print("\n✓ All checks passed! You're ready to use Screen OCR Tool.")
         print("\nTo start the application, run:")
-        print("  python screen_ocr.py")
+        print(r"  .\start.ps1   (or: python screen_ocr.py)")
         
         # Offer to create shortcut
         create_desktop_shortcut()

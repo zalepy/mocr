@@ -5,8 +5,10 @@
 ```bash
 uv sync
 # or
-pip install -r requirements.txt
+pip install -e . --group dev
 ```
+
+Test and coverage settings live in `pyproject.toml` (`[tool.pytest.ini_options]`, `[tool.coverage.*]`).
 
 ## Unit vs E2E
 
@@ -40,7 +42,8 @@ pytest -x                                   # stop on first failure
 pytest --lf                                 # rerun last failures
 pytest tests/unit/test_ocr.py -v            # one file
 pytest tests/e2e/test_ocr_tesseract.py::TestOCREngine::test_process_image_with_sample -v -s
-pytest --cov=mocr --cov-report=term-missing # coverage of the mocr package
+pytest --cov --cov-report=term-missing      # coverage of the mocr package
+pytest --cov --cov-report=html              # -> htmlcov/index.html
 ```
 
 ## Test Structure
@@ -59,7 +62,7 @@ pytest --cov=mocr --cov-report=term-missing # coverage of the mocr package
 
 ### Sample images (`tests/e2e/`)
 - `sample.png` - expected text: "Download the installer from: https://github.com/UB-Mannheim/tesseract/wiki"
-- `sample2.png` - expected text: "this is wild" (known to fail with the default pipeline)
+- `sample2.png` - expected text: "this is wild"
 
 ## Markers
 

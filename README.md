@@ -15,7 +15,7 @@ A Windows-like screen capture tool that performs OCR (Optical Character Recognit
 
 ## Requirements
 
-- **Python 3.8+**
+- **Python 3.11+**
 - **Tesseract OCR** (must be installed separately)
 
 ## Installation
@@ -35,9 +35,20 @@ tesseract --version
 
 ### 2. Install Python Dependencies
 
+With [uv](https://docs.astral.sh/uv/) (recommended; creates `.venv`, which `start.ps1` uses):
+
 ```bash
-pip install -r requirements.txt
+uv sync
 ```
+
+Or with pip in your own virtual environment (pip 25.1+ for `--group`):
+
+```bash
+pip install -e . --group dev --group eval
+```
+
+The `dev` group holds the test tools; `eval` (numpy, opencv) is only needed for `eval_last.py`.
+Run `python check_env.py` to verify Python, Tesseract and the packages.
 
 ### 3. Run the Application
 
@@ -97,6 +108,20 @@ Right-click the tray icon and select "Settings..." to:
 - Toggle auto-copy behavior
 - Toggle result dialog display
 
+Settings are saved and restored on the next start (stored with Qt's `QSettings`, i.e. the registry key `HKCU\Software\mocr` on Windows).
+
+### Evaluating Preprocessing (`eval_last.py`)
+
+Every capture is saved as `last_capture.png`. When OCR gets it wrong, compare preprocessing strategies on it:
+
+```bash
+uv run python eval_last.py                  # all strategies on last_capture.png
+uv run python eval_last.py other.png --only raw,default,upscale_2x
+uv run python eval_last.py --list           # available strategies
+```
+
+For each strategy it saves the image Tesseract actually sees to `eval_out/` and prints the text and Tesseract's mean confidence, with a summary table at the end. Compare by eye.
+
 ## Hotkeys
 
 | Hotkey | Action |
@@ -117,11 +142,11 @@ Right-click the tray icon and select "Settings..." to:
 - Russian (rus)
 - Arabic (ara)
 
-To add more languages, install additional Tesseract language packs and modify the `Config.SUPPORTED_LANGUAGES` dictionary in `screen_ocr.py`.
+To add more languages, install additional Tesseract language packs and modify the `Config.SUPPORTED_LANGUAGES` dictionary in `mocr/config.py`.
 
 ## Configuration
 
-Edit the `Config` class in `screen_ocr.py` to customize:
+Edit the `Config` class in `mocr/config.py` to customize:
 
 ```python
 class Config:
@@ -175,33 +200,24 @@ If the selection overlay doesn't appear on all monitors or captures from the wro
 3. Check that the correct language is selected in settings
 4. Install additional language packs for Tesseract if needed
 
-## Alternative: Integration with Win+Shift+S
-
-If you want to intercept Windows' native `Win+Shift+S` snipping tool, you have two options:
-
-### Option 1: AutoHotkey Script
-
-Create an AutoHotkey script that redirects `Win+Shift+S` to your Python script:
-
-```autohotkey
-; Redirect Win+Shift+S to run the Python script
-#S::
-Run, python "C:\path\to\screen_ocr.py" --capture
-return
-```
-
-### Option 2: Replace Snipping Tool
-
-1. Disable the built-in snipping tool in Windows Settings
-2. Use a tool like AutoHotkey to bind `Win+Shift+S` to this application
-
 ## File Structure
 
 ```
-screen-ocr-tool/
-├── screen_ocr.py      # Main application
-├── requirements.txt   # Python dependencies
-└── README.md          # This file
+mocr/
+├── screen_ocr.py        # Entry point (python screen_ocr.py [--debug])
+├── start.ps1 / stop.ps1 # Start/stop the tray app in the background
+├── eval_last.py         # Compare preprocessing strategies on last_capture.png
+├── check_env.py         # Environment check (Python, Tesseract, packages)
+├── mocr/                # Application package
+│   ├── app.py           #   tray app controller, capture flow
+│   ├── ui.py            #   selection overlay, result and settings dialogs
+│   ├── ocr.py           #   Tesseract OCR engine
+│   ├── clipboard.py     #   clipboard handling
+│   ├── config.py        #   Config defaults
+│   └── utils.py         #   debug logging, helpers
+├── tests/unit/          # Isolated unit tests (default pytest run)
+├── tests/e2e/           # Tests against the real OS (pytest tests/e2e)
+└── pyproject.toml       # Dependencies, pytest and coverage config
 ```
 
 ## License

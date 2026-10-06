@@ -6,7 +6,7 @@ from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, 
     QLabel, QPushButton, QSystemTrayIcon, QMenu, QAction
 )
-from PyQt5.QtCore import Qt, QObject, QTimer, QRect
+from PyQt5.QtCore import Qt, QObject, QTimer, QRect, QSettings
 from PyQt5.QtGui import QPixmap, QIcon, QCursor
 
 # Keyboard hotkey support
@@ -18,28 +18,35 @@ except ImportError:
 from .utils import KEYBOARD_AVAILABLE
 
 from .config import Config
-from .utils import debug_print, WindowsIntegration
+from .utils import debug_print
 from .ocr import OCREngine
 from .clipboard import ClipboardManager
 from .ui import SelectionOverlay, ResultDialog, SettingsDialog
+from . import __version__
+
+# User settings persisted across restarts, with their defaults.
+# The hotkey is not here: it is still configured in Config.
+PERSISTED_SETTINGS = {
+    'language': Config.LANGUAGE,
+    'auto_copy': True,
+    'show_dialog': False,
+    'show_notifications': False,
+}
 
 class ScreenOCRApp(QObject):
     """Main application controller"""
     
-    def __init__(self):
+    def __init__(self, settings_store: Optional[QSettings] = None):
         super().__init__()
         
         # Store captured screenshots
         self.screens_data = []
         
-        # Settings
-        self.settings = {
-            'hotkey': Config.HOTKEY,
-            'language': Config.LANGUAGE,
-            'auto_copy': True,
-            'show_dialog': False,
-            'show_notifications': False
-        }
+        # Settings (persisted via QSettings: HKCU\Software\mocr on Windows)
+        self.settings_store = settings_store if settings_store is not None else QSettings("mocr", "Screen OCR")
+        self.settings = {'hotkey': Config.HOTKEY}
+        self.settings.update(self._load_settings())
+        Config.LANGUAGE = self.settings['language']
         
         # OCR Engine
         self.ocr_engine = OCREngine()
@@ -408,6 +415,23 @@ class ScreenOCRApp(QObject):
         """Handle settings changes"""
         self.settings.update(new_settings)
         Config.LANGUAGE = new_settings.get('language', Config.LANGUAGE)
+        self._save_settings()
+    
+    def _load_settings(self) -> dict:
+        """Read persisted settings, falling back to defaults"""
+        loaded = {}
+        for key, default in PERSISTED_SETTINGS.items():
+            loaded[key] = self.settings_store.value(key, default, type=type(default))
+        # Ignore a stored language that is no longer offered
+        if loaded['language'] not in Config.SUPPORTED_LANGUAGES.values():
+            loaded['language'] = PERSISTED_SETTINGS['language']
+        return loaded
+    
+    def _save_settings(self):
+        """Persist current settings"""
+        for key in PERSISTED_SETTINGS:
+            self.settings_store.setValue(key, self.settings[key])
+        self.settings_store.sync()
     
     def show_last_result(self):
         """Show the last OCR result"""
@@ -440,7 +464,7 @@ class ScreenOCRApp(QObject):
 def main():
     """Main entry point"""
     print("=" * 60)
-    print("Screen OCR Tool v1.0.0")
+    print(f"Screen OCR Tool v{__version__}")
     print("=" * 60)
     
     # Check if running as admin (needed for hotkey on Windows)
@@ -465,7 +489,7 @@ def main():
     
     # Set application info
     app.setApplicationName("Screen OCR Tool")
-    app.setApplicationVersion("1.0.0")
+    app.setApplicationVersion(__version__)
     
     # Create main app controller
     main_app = ScreenOCRApp()

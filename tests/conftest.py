@@ -12,8 +12,6 @@ import pytest
 import sys
 from pathlib import Path
 
-# Ensure the project root is in the path
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
 E2E_DIR = Path(__file__).parent / "e2e"
 

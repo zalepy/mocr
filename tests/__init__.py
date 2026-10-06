@@ -1,16 +1,8 @@
 """
-Screen OCR Tool - Unit Tests Package
+Screen OCR Tool - test package.
 
-This package contains comprehensive unit tests for the Screen OCR application,
-including tests for OCR processing, clipboard operations, and Windows integration.
+- tests/unit: isolated, no OS interaction (default `pytest` run)
+- tests/e2e: real tray/clipboard/Tesseract (`pytest tests/e2e`)
 
-Test Coverage:
-- OCR Engine (with sample image)
-- Clipboard Manager
-- Configuration
-- Windows Integration Utilities
-- End-to-end workflows
-
-Run tests with:
-    pytest -v --cov=screen_ocr
+See TESTING.md.
 """

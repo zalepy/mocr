@@ -1,23 +1,78 @@
 [project]
 name = "mocr"
-version = "0.1.0"
-description = "Add your description here"
+dynamic = ["version"]
+description = "Windows screen-region OCR tool: select an area, Tesseract reads it, text goes to the clipboard"
 readme = "README.md"
+license = "MIT"
 requires-python = ">=3.11"
 dependencies = [
     "keyboard>=0.13.5",
-    "numpy>=2.4.2",
-    "opencv-python>=4.13.0.92",
     "pillow>=9.0.0",
     "pyqt5>=5.15.0",
     "pytesseract>=0.3.10",
-    "pytest>=7.0.0",
-    "pytest-cov>=4.0.0",
-    "pytest-qt>=4.0.0",
     "pywin32>=300 ; sys_platform == 'win32'",
 ]
 
+[project.scripts]
+mocr = "mocr.app:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "pytest-qt>=4.0.0",
+]
+# Only needed by eval_last.py (preprocessing experiments)
+eval = [
+    "numpy>=2.4.2",
+    "opencv-python>=4.13.0.92",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "mocr/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["mocr"]
+
 [tool.uv]
+default-groups = ["dev", "eval"]
 required-environments = [
     "sys_platform == 'win32' and platform_machine == 'AMD64'"
 ]
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+# Default run = unit tests only (no OS interaction). E2E: pytest tests/e2e
+testpaths = ["tests/unit"]
+pythonpath = ["."]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = ["-v", "--strict-markers", "--tb=short", "--disable-warnings"]
+norecursedirs = [".git", ".venv", "venv", "__pycache__", "*.egg-info"]
+
+[tool.coverage.run]
+source = ["mocr"]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]
+precision = 2
+show_missing = true
+
+[tool.coverage.html]
+directory = "htmlcov"
+
+[tool.coverage.xml]
+output = "coverage.xml"

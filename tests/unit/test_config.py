@@ -3,10 +3,7 @@ Unit tests for configuration and small utilities
 """
 
 import pytest
-import sys
-from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parents[2]))
 
 from mocr.config import Config
 from mocr.utils import WindowsIntegration

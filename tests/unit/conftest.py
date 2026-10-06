@@ -12,6 +12,7 @@ import subprocess
 
 import pytest
 from unittest.mock import MagicMock
+from PyQt5.QtCore import QSettings
 from PyQt5.QtGui import QClipboard, QScreen
 from PyQt5.QtWidgets import QSystemTrayIcon, QWidget, QDialog
 
@@ -47,6 +48,10 @@ def forbid_os_interaction(monkeypatch):
     if mocr.ocr.TESSERACT_AVAILABLE:
         monkeypatch.setattr(mocr.ocr.pytesseract, "image_to_string",
                             _forbidden("running Tesseract"))
+        monkeypatch.setattr(mocr.ocr.pytesseract, "image_to_data",
+                            _forbidden("running Tesseract"))
+    # The default QSettings store is the registry (HKCU\Software\mocr)
+    monkeypatch.setattr(mocr.app, "QSettings", _forbidden("using the real settings store (registry)"))
     if mocr.app.keyboard is not None:
         monkeypatch.setattr(mocr.app.keyboard, "is_pressed",
                             _forbidden("reading global keyboard state"))
@@ -61,9 +66,17 @@ def mock_tray(monkeypatch):
 
 
 @pytest.fixture
-def ocr_app(qapp, mock_tray, monkeypatch):
-    """ScreenOCRApp instance with the tray mocked out"""
+def settings_store(tmp_path):
+    """QSettings backed by a temp INI file instead of the registry"""
+    return QSettings(str(tmp_path / "settings.ini"), QSettings.IniFormat)
+
+
+@pytest.fixture
+def ocr_app(qapp, mock_tray, settings_store, monkeypatch):
+    """ScreenOCRApp instance with the tray mocked out and temp settings"""
     monkeypatch.setattr(mocr.app.QApplication, "quit", MagicMock())
-    app = mocr.app.ScreenOCRApp()
+    # Settings changes write Config.LANGUAGE; restore it after the test
+    monkeypatch.setattr(mocr.app.Config, "LANGUAGE", mocr.app.Config.LANGUAGE)
+    app = mocr.app.ScreenOCRApp(settings_store=settings_store)
     yield app
     app._stop_hotkey_polling()
