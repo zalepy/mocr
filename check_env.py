@@ -67,7 +67,6 @@ def check_python_packages():
         "PyQt5": "PyQt5",
         "pytesseract": "pytesseract",
         "Pillow": "Pillow",
-        "keyboard": "keyboard",
     }
     
     all_installed = True

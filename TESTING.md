@@ -21,8 +21,8 @@ The suite is split in two:
 
 **Unit tests** are enforced to stay isolated: `tests/unit/conftest.py` has an autouse
 fixture that makes any real OS call (showing the tray icon or a window, tray
-notifications, clipboard, screen grabs, subprocesses, Tesseract, global keyboard
-state) fail with `Unit test attempted OS interaction: ...`. Mock the dependency
+notifications, clipboard, screen grabs, subprocesses, Tesseract, registering
+the global hotkey) fail with `Unit test attempted OS interaction: ...`. Mock the dependency
 instead; for `ScreenOCRApp`, use the `ocr_app` / `mock_tray` fixtures.
 
 **E2E tests** use the real system. Expect the tray icon and its "started"
@@ -51,14 +51,15 @@ pytest --cov --cov-report=html              # -> htmlcov/index.html
 ### Unit (`tests/unit/`)
 - `test_config.py` - configuration values, small utilities
 - `test_ocr.py` - OCR engine logic with Tesseract mocked (pixmap conversion, language, error paths)
-- `test_app.py` - app controller with tray mocked (hotkey timer, tray menu, quit)
+- `test_app.py` - app controller with tray mocked (hotkey wiring, tray menu, quit)
+- `test_hotkey.py` - hotkey parsing and WM_HOTKEY handling with `RegisterHotKey` mocked
 - `test_multimonitor_selection.py` - screen selection and coordinate mapping with mock screens
 - `test_eval_last.py` - `eval_last.py` with the OCR engine mocked
 
 ### E2E (`tests/e2e/`)
 - `test_ocr_tesseract.py` - real Tesseract on `sample.png` / `sample2.png`, OCR → clipboard workflow
 - `test_clipboard.py` - real system clipboard round-trips
-- `test_tray.py` - real tray icon and hotkey polling
+- `test_tray.py` - real tray icon and hotkey registration
 
 ### Sample images (`tests/e2e/`)
 - `sample.png` - expected text: "Download the installer from: https://github.com/UB-Mannheim/tesseract/wiki"

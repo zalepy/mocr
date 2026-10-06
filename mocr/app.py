@@ -6,21 +6,14 @@ from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, 
     QLabel, QPushButton, QSystemTrayIcon, QMenu, QAction
 )
-from PyQt5.QtCore import Qt, QObject, QTimer, QRect, QSettings
+from PyQt5.QtCore import Qt, QObject, QRect, QSettings
 from PyQt5.QtGui import QPixmap, QIcon, QCursor
-
-# Keyboard hotkey support
-try:
-    import keyboard
-except ImportError:
-    keyboard = None
-
-from .utils import KEYBOARD_AVAILABLE
 
 from .config import Config
 from .utils import debug_print
 from .ocr import OCREngine
 from .clipboard import ClipboardManager
+from .hotkey import GlobalHotkey
 from .ui import SelectionOverlay, ResultDialog, SettingsDialog
 from . import __version__
 
@@ -57,9 +50,8 @@ class ScreenOCRApp(QObject):
         # Control window (backup UI if tray doesn't work)
         self.control_window: Optional[QMainWindow] = None
         
-        # Hotkey polling state
-        self.hotkey_timer: Optional[QTimer] = None
-        self.hotkey_pressed = False
+        # System-wide capture hotkey (registered in _setup_hotkey)
+        self.hotkey: Optional[GlobalHotkey] = None
         
         # Create system tray
         self._create_system_tray()
@@ -203,58 +195,21 @@ class ScreenOCRApp(QObject):
             window.activateWindow()
     
     def _setup_hotkey(self):
-        """Setup global hotkey for screen capture using Qt timer polling"""
-        if not KEYBOARD_AVAILABLE:
-            debug_print("keyboard module not available. Hotkey will not work.")
-            debug_print("Install with: pip install keyboard")
+        """Register the system-wide capture hotkey; warn via the tray if it is taken"""
+        self.hotkey = GlobalHotkey(Config.HOTKEY, parent=self)
+        self.hotkey.activated.connect(self.start_capture)
+        if not self.hotkey.register():
             self.tray_icon.showMessage(
                 "Hotkey Unavailable",
-                "keyboard module not installed. Use tray menu to capture.\nInstall with: pip install keyboard",
+                f"Could not register {Config.HOTKEY} (another application may be using it).\n"
+                "Use the tray icon to capture.",
                 QSystemTrayIcon.Warning,
                 5000
             )
-            return
-        
-        # Parse the hotkey string into key names
-        # Format: "ctrl+alt+prtscn" -> ["ctrl", "alt", "prtscn"]
-        self.hotkey_keys = Config.HOTKEY.lower().split("+")
-        
-        # Create and start a timer to poll for hotkey
-        self.hotkey_timer = QTimer()
-        self.hotkey_timer.timeout.connect(self._check_hotkey_pressed)
-        # Check every 100ms
-        self.hotkey_timer.start(100)
-        
-        debug_print(f"✓ Hotkey polling started for: {Config.HOTKEY}")
-        debug_print("  (Using Qt-based timer, will not block UI)")
-    
-    def _check_hotkey_pressed(self):
-        """Check if hotkey is pressed (called by Qt timer)"""
-        try:
-            # Check if all keys in the hotkey combination are pressed
-            all_pressed = all(keyboard.is_pressed(key) for key in self.hotkey_keys)
-            
-            if all_pressed and not self.hotkey_pressed:
-                # Hotkey was just pressed
-                self.hotkey_pressed = True
-                debug_print(f"Hotkey triggered: {Config.HOTKEY}")
-                # Call start_capture in the Qt main thread (it's already running in main thread)
-                self.start_capture()
-            elif not all_pressed and self.hotkey_pressed:
-                # Hotkey was released
-                self.hotkey_pressed = False
-                
-        except Exception:
-            # Silently ignore errors (e.g., invalid key names)
-            pass
-    
-    def _stop_hotkey_polling(self):
-        """Stop the hotkey polling timer"""
-        if self.hotkey_timer is not None:
-            self.hotkey_timer.stop()
-            self.hotkey_timer.deleteLater()
-            self.hotkey_timer = None
-            print("✓ Hotkey polling stopped")
+
+    def _unregister_hotkey(self):
+        if self.hotkey is not None:
+            self.hotkey.unregister()
 
     def _capture_screen_region(self, rect: QRect) -> QPixmap:
         """Capture a specific region of the screen"""
@@ -355,8 +310,8 @@ class ScreenOCRApp(QObject):
             return
         
         # Save captured image for debugging / eval_last.py
-        # TODO: revisit once normal operation is flawless - every capture is
-        # written to disk unconditionally (privacy); consider gating on --debug.
+        # Closed question (2026-10-06): every capture is written to disk on
+        # purpose. The privacy trade-off is known and accepted; don't gate it.
         try:
             capture_save_path = Path.cwd() / "last_capture.png"
             captured_pixmap.save(str(capture_save_path), "PNG")
@@ -454,8 +409,7 @@ class ScreenOCRApp(QObject):
         if self.control_window is not None:
             self.control_window.close()
         
-        # Stop hotkey polling timer
-        self._stop_hotkey_polling()
+        self._unregister_hotkey()
         
         self.tray_icon.hide()
         QApplication.quit()
@@ -466,18 +420,6 @@ def main():
     print("=" * 60)
     print(f"Screen OCR Tool v{__version__}")
     print("=" * 60)
-    
-    # Check if running as admin (needed for hotkey on Windows)
-    if sys.platform == 'win32':
-        try:
-            import ctypes
-            is_admin = ctypes.windll.shell32.IsUserAnAdmin()
-            if not is_admin:
-                print("⚠️  WARNING: Not running as Administrator")
-                print("    Hotkeys may not work properly.")
-                print("    For full functionality, run as Administrator.")
-        except Exception:
-            pass
     
     # High DPI support
     QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)

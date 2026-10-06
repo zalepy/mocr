@@ -18,6 +18,7 @@ from PyQt5.QtWidgets import QSystemTrayIcon, QWidget, QDialog
 
 import mocr.app
 import mocr.clipboard
+import mocr.hotkey
 import mocr.ocr
 
 
@@ -52,9 +53,7 @@ def forbid_os_interaction(monkeypatch):
                             _forbidden("running Tesseract"))
     # The default QSettings store is the registry (HKCU\Software\mocr)
     monkeypatch.setattr(mocr.app, "QSettings", _forbidden("using the real settings store (registry)"))
-    if mocr.app.keyboard is not None:
-        monkeypatch.setattr(mocr.app.keyboard, "is_pressed",
-                            _forbidden("reading global keyboard state"))
+    monkeypatch.setattr(mocr.hotkey, "_user32", _forbidden("registering a global hotkey"))
 
 
 @pytest.fixture
@@ -74,9 +73,11 @@ def settings_store(tmp_path):
 @pytest.fixture
 def ocr_app(qapp, mock_tray, settings_store, monkeypatch):
     """ScreenOCRApp instance with the tray mocked out and temp settings"""
+    monkeypatch.setattr(mocr.hotkey, "_user32", MagicMock(name="user32"))
     monkeypatch.setattr(mocr.app.QApplication, "quit", MagicMock())
     # Settings changes write Config.LANGUAGE; restore it after the test
     monkeypatch.setattr(mocr.app.Config, "LANGUAGE", mocr.app.Config.LANGUAGE)
     app = mocr.app.ScreenOCRApp(settings_store=settings_store)
     yield app
-    app._stop_hotkey_polling()
+    # Leave no native event filter installed on the shared QApplication
+    app._unregister_hotkey()

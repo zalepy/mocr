@@ -189,9 +189,11 @@ If the selection overlay doesn't appear on all monitors or captures from the wro
 
 ### Hotkey not working
 
-1. Make sure `keyboard` package is installed: `pip install keyboard`
-2. Run the application as Administrator (required for global hotkeys on Windows)
-3. Check if another application is using the same hotkey
+The hotkey is registered with Windows (`RegisterHotKey`); no Administrator rights are needed.
+
+1. If it is taken by another application, a "Hotkey Unavailable" tray notification appears at startup
+2. Run `.\start.ps1 -DebugMode` and look for `Global hotkey registered` / `Hotkey triggered` in the console
+3. Change `Config.HOTKEY` in `mocr/config.py` to another combination (e.g. `ctrl+shift+prtscn`)
 
 ### No text detected
 

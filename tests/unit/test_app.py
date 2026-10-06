@@ -1,45 +1,47 @@
 """
-Unit tests for the ScreenOCRApp controller with the tray and keyboard mocked out
+Unit tests for the ScreenOCRApp controller with the tray and hotkey mocked out
 """
 
 import pytest
+from unittest.mock import MagicMock
 
-
+import mocr.hotkey
 from mocr.config import Config
-from mocr.utils import KEYBOARD_AVAILABLE
 
 
 class TestHotkey:
-    """Test hotkey configuration and polling setup"""
+    """Hotkey wiring (the ocr_app fixture mocks the Win32 calls)"""
 
-    @pytest.mark.skipif(not KEYBOARD_AVAILABLE, reason="keyboard module not available")
-    def test_hotkey_keys_parsed_correctly(self):
-        """Test that hotkey configuration is parsed correctly"""
-        # Should parse "ctrl+alt+prtscn" into ["ctrl", "alt", "prtscn"]
-        expected_keys = Config.HOTKEY.lower().split("+")
-        assert len(expected_keys) >= 2, "Hotkey should have at least 2 keys"
-        assert "ctrl" in expected_keys, "Hotkey should include ctrl modifier"
+    def test_hotkey_registered_from_config(self, ocr_app):
+        assert ocr_app.hotkey.text == Config.HOTKEY
+        assert ocr_app.hotkey.registered
 
-        # Check that keys are valid keyboard module key names
-        valid_keys = ["ctrl", "shift", "alt", "prtscn", "o", "print", "enter"]
-        for key in expected_keys:
-            assert key in valid_keys or len(key) <= 3, f"Invalid key name: {key}"
+    def test_hotkey_starts_capture(self, qapp, mock_tray, settings_store, monkeypatch):
+        import mocr.app
+        # Patch before construction: the signal connects to the bound method
+        start_capture = MagicMock()
+        monkeypatch.setattr(mocr.app.ScreenOCRApp, "start_capture", start_capture)
+        monkeypatch.setattr(mocr.hotkey, "_user32", MagicMock(name="user32"))
+        app = mocr.app.ScreenOCRApp(settings_store=settings_store)
+        try:
+            app.hotkey.activated.emit()
+            start_capture.assert_called_once()
+        finally:
+            app._unregister_hotkey()
 
-    @pytest.mark.skipif(not KEYBOARD_AVAILABLE, reason="keyboard module not available")
-    def test_hotkey_polling_timer_initialization(self, ocr_app):
-        """Test that hotkey polling timer is created, active and parsed"""
-        assert ocr_app.hotkey_timer is not None, "Hotkey timer should be initialized"
-        assert ocr_app.hotkey_timer.isActive(), "Hotkey timer should be active"
-        assert ocr_app.hotkey_keys == ["ctrl", "alt", "prtscn"], "Hotkey keys should be parsed"
+    def test_registration_failure_warns(self, qapp, mock_tray, settings_store, monkeypatch):
+        import mocr.app
+        user32 = MagicMock(name="user32")
+        user32.RegisterHotKey.return_value = 0  # e.g. taken by another application
+        monkeypatch.setattr(mocr.hotkey, "_user32", lambda: user32)
+        app = mocr.app.ScreenOCRApp(settings_store=settings_store)
+        assert not app.hotkey.registered
+        titles = [c.args[0] for c in mock_tray.showMessage.call_args_list]
+        assert "Hotkey Unavailable" in titles
 
-    @pytest.mark.skipif(not KEYBOARD_AVAILABLE, reason="keyboard module not available")
-    def test_hotkey_polling_interval(self, ocr_app):
-        """100ms polling interval should not noticeably lag user interaction"""
-        assert ocr_app.hotkey_timer.interval() == 100, "Timer interval should be 100ms"
-
-    def test_quit_stops_hotkey_polling(self, ocr_app, mock_tray):
+    def test_quit_unregisters_hotkey(self, ocr_app, mock_tray):
         ocr_app.quit_app()
-        assert ocr_app.hotkey_timer is None
+        assert not ocr_app.hotkey.registered
         mock_tray.hide.assert_called_once()
 
 
@@ -72,7 +74,7 @@ class TestSettingsPersistence:
         import mocr.app
         ocr_app._on_settings_changed({"language": "deu", "auto_copy": False,
                                       "show_dialog": True, "show_notifications": True})
-        ocr_app._stop_hotkey_polling()
+        ocr_app._unregister_hotkey()
 
         restarted = mocr.app.ScreenOCRApp(settings_store=settings_store)
         try:
@@ -82,14 +84,15 @@ class TestSettingsPersistence:
             assert restarted.settings["show_notifications"] is True
             assert mocr.app.Config.LANGUAGE == "deu"
         finally:
-            restarted._stop_hotkey_polling()
+            restarted._unregister_hotkey()
 
     def test_unsupported_stored_language_falls_back(self, qapp, mock_tray, settings_store, monkeypatch):
         import mocr.app
         monkeypatch.setattr(mocr.app.Config, "LANGUAGE", "eng")
+        monkeypatch.setattr(mocr.hotkey, "_user32", MagicMock(name="user32"))
         settings_store.setValue("language", "klingon")
         app = mocr.app.ScreenOCRApp(settings_store=settings_store)
         try:
             assert app.settings["language"] == "eng"
         finally:
-            app._stop_hotkey_polling()
+            app._unregister_hotkey()

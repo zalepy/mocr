@@ -205,30 +205,3 @@ class TestSettingsAndTray:
         mock_tray.showMessage.reset_mock()
         ocr_app._on_selection_cancelled()
         assert mock_tray.showMessage.call_args.args[0] == "Capture Cancelled"
-
-
-@pytest.mark.skipif(mocr.app.keyboard is None, reason="keyboard module not available")
-class TestHotkeyPolling:
-
-    def test_triggers_once_per_press(self, ocr_app, monkeypatch):
-        pressed = {"value": True}
-        monkeypatch.setattr(mocr.app.keyboard, "is_pressed", lambda key: pressed["value"])
-        ocr_app.start_capture = MagicMock()
-
-        ocr_app._check_hotkey_pressed()
-        ocr_app._check_hotkey_pressed()  # still held
-        assert ocr_app.start_capture.call_count == 1
-
-        pressed["value"] = False
-        ocr_app._check_hotkey_pressed()  # released
-        pressed["value"] = True
-        ocr_app._check_hotkey_pressed()  # pressed again
-        assert ocr_app.start_capture.call_count == 2
-
-    def test_partial_combo_does_not_trigger(self, ocr_app, monkeypatch):
-        monkeypatch.setattr(mocr.app.keyboard, "is_pressed", lambda key: key != "prtscn")
-        ocr_app.start_capture = MagicMock()
-
-        ocr_app._check_hotkey_pressed()
-
-        ocr_app.start_capture.assert_not_called()

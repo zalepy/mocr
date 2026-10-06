@@ -1,13 +1,10 @@
 """
-E2E tests for the real system tray icon and hotkey polling.
+E2E tests for the real system tray icon and hotkey registration.
 
 These show the tray icon and its "started" notification.
 """
 
 import pytest
-
-
-from mocr.utils import KEYBOARD_AVAILABLE
 
 
 class TestHotkeyAndUI:
@@ -27,10 +24,8 @@ class TestHotkeyAndUI:
         assert app.tray_icon is not None
         assert app.tray_icon.isVisible()
 
-        # Verify hotkey timer is running
-        if KEYBOARD_AVAILABLE:
-            assert app.hotkey_timer is not None
-            assert app.hotkey_timer.isActive()
+        # Verify the global hotkey is registered with Windows
+        assert app.hotkey.registered
 
         # Cleanup
         app.quit_app()
