@@ -103,7 +103,7 @@ This will print information about:
 
 ### Re-OCR the Last Capture
 
-If the text came out wrong, right-click the tray icon → **Re-OCR last capture with** and pick another preprocessing strategy (e.g. upscale for tiny text, downscale for big headings, invert, `--psm 7` for a single line). It re-reads the saved `last_capture.png`, copies the new result as usual, and always shows a preview notification so you can compare.
+If the text came out wrong, right-click the tray icon → **Re-OCR last capture with** and pick another preprocessing strategy (e.g. upscale for tiny text, downscale for big headings, **Light text on busy background** for white headings over colored bands or photos, `--psm 7` for a single line). It re-reads the saved `last_capture.png`, copies the new result as usual, and always shows a preview notification so you can compare.
 
 By default captures go through **Auto scale**: it measures the text line height in the image and up- or downscales it to the ~22 px Tesseract reads best. This matters on high-DPI displays, where captures are in device pixels (2x at 200%) and big text can otherwise come back as "No text detected". The default is `Config.OCR_STRATEGY`; strategies live in `mocr/preprocess.py`.
 

@@ -139,6 +139,22 @@ class TestTransforms:
         assert padded.size == (220, 80)
         assert padded.getpixel((0, 0)) == 255
 
+    def test_otsu_level_low_splits_bright_classes(self):
+        img = Image.new("L", (30, 10), 0)            # black photo strip
+        ImageDraw.Draw(img).rectangle([10, 0, 29, 9], fill=140)  # blue band
+        ImageDraw.Draw(img).rectangle([20, 0, 29, 9], fill=250)  # white text
+        assert otsu_level(img) < 140
+        assert 140 <= otsu_level(img, low=otsu_level(img)) < 250
+
+    def test_light_text_keeps_only_brightest_as_dark_text(self):
+        img = Image.new("RGB", (300, 120), (0, 0, 0))                   # dark photo
+        ImageDraw.Draw(img).rectangle([0, 0, 299, 80], fill=(40, 170, 250))  # blue band
+        ImageDraw.Draw(img).rectangle([20, 30, 280, 50], fill="white")      # "text" line
+        result = preprocess.light_text(img)
+        # Only the white bar is dark; band and photo became background
+        assert result.size == img.size  # 20 px line: already near target
+        assert dark_pixels(result) == 261 * 21
+
     def test_psm_strategies_carry_config(self):
         assert STRATEGIES_BY_NAME["psm7"].tesseract_config == "--psm 7"
         assert STRATEGIES_BY_NAME["default"].tesseract_config == ""

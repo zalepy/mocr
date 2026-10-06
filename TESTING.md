@@ -63,6 +63,7 @@ pytest --cov --cov-report=html              # -> htmlcov/index.html
 - `test_tray.py` - real tray icon and hotkey registration
 
 ### Sample images (`tests/e2e/`)
+- `sample3.png` - white heading on a blue band over a photo; only `light_text` reads it ("huge AI news")
 - `sample.png` - expected text: "Download the installer from: https://github.com/UB-Mannheim/tesseract/wiki"
 - `sample2.png` - expected text: "this is wild"
 

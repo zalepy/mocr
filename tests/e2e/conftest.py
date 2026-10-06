@@ -31,6 +31,15 @@ def sample2_image_path():
     return path
 
 
+@pytest.fixture(scope="session")
+def sample3_image_path():
+    """Provide path to third sample (white text on blue band + photo) OCR test image"""
+    path = SAMPLES_DIR / "sample3.png"
+    if not path.exists():
+        pytest.skip(f"Sample3 image not found at {path}")
+    return path
+
+
 @pytest.fixture
 def preserve_clipboard(qapp):
     """Restore the user's clipboard text after a test that writes to it"""

@@ -30,9 +30,14 @@ SCALE_DEADBAND = (0.8, 1.25)  # close enough: don't resample
 
 # --- helpers ---
 
-def otsu_level(gray: Image.Image) -> int:
-    """Otsu's threshold for an 'L' image: the level that best splits it into two classes"""
+def otsu_level(gray: Image.Image, low: Optional[int] = None) -> int:
+    """
+    Otsu's threshold for an 'L' image: the level that best splits it into two
+    classes. With `low`, only pixels brighter than `low` are considered.
+    """
     hist = gray.histogram()
+    if low is not None:
+        hist = [0] * (low + 1) + hist[low + 1:]
     total = sum(hist)
     sum_all = sum(i * h for i, h in enumerate(hist))
     weight_bg = sum_bg = 0
@@ -155,6 +160,19 @@ def pad(img, border=20):
     return ImageOps.expand(gray, border=border, fill=fill)
 
 
+def light_text(img):
+    """
+    White/bright text on a busy background (e.g. a colored band plus a photo):
+    a second Otsu split among the bright pixels keeps only the brightest class
+    as text, then rescales like auto_scale (without sharpening a binary image).
+    """
+    gray = ImageOps.grayscale(img)
+    level = otsu_level(gray, low=otsu_level(gray))
+    text = gray.point(lambda p: 0 if p > level else 255)  # dark text on white
+    factor = auto_scale_factor(text)
+    return text if factor == 1.0 else _resize(text, factor)
+
+
 STRATEGIES = [
     Strategy("auto_scale", "Auto scale (fit text size + sharpen)", auto_scale),
     Strategy("default", "Default (grayscale + sharpen)", default),
@@ -164,6 +182,7 @@ STRATEGIES = [
     Strategy("upscale_2x", "Upscale 2x (small text)", scale(2)),
     Strategy("upscale_3x", "Upscale 3x (small text)", scale(3)),
     Strategy("invert", "Invert colors", invert),
+    Strategy("light_text", "Light text on busy background", light_text),
     Strategy("otsu", "Grayscale + Otsu threshold", otsu_threshold),
     Strategy("thin_strokes", "Otsu + thin strokes (bold text)", thin_strokes),
     Strategy("pad", "Grayscale + 20px border", pad),

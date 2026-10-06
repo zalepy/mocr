@@ -123,6 +123,13 @@ class TestOCREngine:
 
         assert expected.lower() in result.lower(), repr(result)
 
+    def test_light_text_on_busy_background(self, ocr_engine, sample3_image_path):
+        """White heading on a blue band over a dark photo: every other strategy
+        reads nothing; light_text isolates the brightest class"""
+        result = ocr_engine.process_file(str(sample3_image_path), "eng", "light_text")
+        # "AI" and "Al" are indistinguishable in this sans-serif font
+        assert result.lower().replace("al ", "ai ") == "huge ai news", repr(result)
+
     def test_process_image_blank_pixmap(self, ocr_engine, qapp):
         """Test processing a blank image"""
         # Create a blank white pixmap
