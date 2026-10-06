@@ -44,6 +44,17 @@ class TestSelectionOverlay:
         assert overlay.made == [QRect(QPoint(100, 50), QPoint(300, 200))]
         overlay.hide.assert_called_once()
 
+    def test_emits_global_coordinates(self, overlay):
+        # Two 4K monitors at 200%: local x >= 1920 is the second monitor, whose
+        # geometry starts at x=3840. mapToGlobal does the per-screen conversion.
+        def map_to_global(p):
+            return QPoint(p.x() + 1920 if p.x() >= 1920 else p.x(), p.y())
+        overlay.mapToGlobal = map_to_global
+
+        drag(overlay, (2000, 100), (2200, 200))
+
+        assert overlay.made == [QRect(QPoint(3920, 100), QPoint(4120, 200))]
+
     def test_tiny_selection_is_ignored(self, overlay):
         drag(overlay, (100, 100), (104, 104))
 

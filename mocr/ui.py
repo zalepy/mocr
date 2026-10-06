@@ -191,11 +191,21 @@ class SelectionOverlay(QWidget):
             debug_print(f"Selection rect: {self.selection_rect.x()}, {self.selection_rect.y()}, {self.selection_rect.width()}x{self.selection_rect.height()}")
             if not self.selection_rect.isNull() and self.selection_rect.width() > 5 and self.selection_rect.height() > 5:
                 self.hide()
-                self.selection_made.emit(self.selection_rect)
+                self.selection_made.emit(self._to_global(self.selection_rect))
             else:
                 self.selection_rect = QRect()
                 self.update()
     
+    def _to_global(self, rect: QRect) -> QRect:
+        """
+        Map a widget-local selection to global logical (screen geometry) coordinates.
+
+        With per-monitor DPI scaling, Qt5 keeps each secondary screen's native origin
+        (e.g. two 4K monitors at 200% -> geometries x=0 and x=3840, with a gap), so
+        local + widget offset is wrong; mapToGlobal resolves the screen per point.
+        """
+        return QRect(self.mapToGlobal(rect.topLeft()), self.mapToGlobal(rect.bottomRight()))
+
     def keyPressEvent(self, event):
         """Handle ESC key to cancel selection"""
         if event.key() == Qt.Key_Escape:
