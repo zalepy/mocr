@@ -121,7 +121,7 @@ class ScreenOCRApp(QObject):
         
         # Capture action - primary action with icon
         capture_action = QAction("📸 Capture Screen", tray_menu)
-        capture_action.setToolTip("Capture and OCR a screen region\\n(Shortcut: Ctrl+Alt+Print Screen)")
+        capture_action.setToolTip("Capture and OCR a screen region\n(Shortcut: Ctrl+Alt+Print Screen)")
         capture_action.triggered.connect(self.start_capture)
         tray_menu.addAction(capture_action)
         
@@ -347,7 +347,9 @@ class ScreenOCRApp(QObject):
             )
             return
         
-        # Save captured image for debugging
+        # Save captured image for debugging / eval_last.py
+        # TODO: revisit once normal operation is flawless - every capture is
+        # written to disk unconditionally (privacy); consider gating on --debug.
         try:
             capture_save_path = Path.cwd() / "last_capture.png"
             captured_pixmap.save(str(capture_save_path), "PNG")

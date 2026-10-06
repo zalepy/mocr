@@ -1,225 +1,81 @@
 # Testing Guide for Screen OCR Tool
 
-This guide explains how to run the test suite with coverage reporting.
-
 ## Setup
 
-Install test dependencies:
-
 ```bash
-pip install -r requirements.txt
+uv sync
 # or
-pip install pytest pytest-cov pytest-qt
+pip install -r requirements.txt
 ```
 
-## Running Tests
+## Unit vs E2E
 
-### Quick Start
+The suite is split in two:
 
-Run all tests with coverage:
+| Suite | Location | Touches the OS? | Run with |
+|---|---|---|---|
+| Unit | `tests/unit/` | **Never** | `pytest` (default) |
+| E2E | `tests/e2e/` | Yes: tray icon + notifications, clipboard, Tesseract | `pytest tests/e2e` |
+
+**Unit tests** are enforced to stay isolated: `tests/unit/conftest.py` has an autouse
+fixture that makes any real OS call (showing the tray icon or a window, tray
+notifications, clipboard, screen grabs, subprocesses, Tesseract, global keyboard
+state) fail with `Unit test attempted OS interaction: ...`. Mock the dependency
+instead; for `ScreenOCRApp`, use the `ocr_app` / `mock_tray` fixtures.
+
+**E2E tests** use the real system. Expect the tray icon and its "started"
+notification to appear. Clipboard tests save your clipboard text and restore it
+afterwards. OCR tests need Tesseract installed and are skipped otherwise.
 
 ```bash
-pytest -v --cov=screen_ocr --cov-report=html
+pytest                 # unit tests only
+pytest tests/e2e       # e2e tests only
+pytest tests           # both
 ```
 
-Or using the provided test runner:
+## Common Commands
 
 ```bash
-python run_tests.py
-```
-
-### Common Test Commands
-
-**Run all tests verbosely:**
-```bash
-pytest -v
-```
-
-**Run only fast tests (skip OCR processing):**
-```bash
-pytest -v -m "not slow"
-python run_tests.py --fast
-```
-
-**Run only OCR-related tests:**
-```bash
-pytest -v -m ocr
-python run_tests.py --only-ocr
-```
-
-**Run specific test file:**
-```bash
-pytest tests/test_screen_ocr.py -v
-```
-
-**Run specific test class:**
-```bash
-pytest tests/test_screen_ocr.py::TestOCREngine -v
-```
-
-**Run specific test:**
-```bash
-pytest tests/test_screen_ocr.py::TestOCREngine::test_process_image_with_sample -v
-```
-
-**Run without coverage reporting:**
-```bash
-pytest -v --no-cov
-python run_tests.py --no-coverage
-```
-
-## Coverage Reports
-
-Coverage is automatically generated in multiple formats:
-
-### HTML Report
-```bash
-pytest --cov=screen_ocr --cov-report=html
-# Open: htmlcov/index.html
-```
-
-### Terminal Report
-```bash
-pytest --cov=screen_ocr --cov-report=term-missing
-```
-
-### XML Report (for CI/CD)
-```bash
-pytest --cov=screen_ocr --cov-report=xml
+pytest -x                                   # stop on first failure
+pytest --lf                                 # rerun last failures
+pytest tests/unit/test_ocr.py -v            # one file
+pytest tests/e2e/test_ocr_tesseract.py::TestOCREngine::test_process_image_with_sample -v -s
+pytest --cov=mocr --cov-report=term-missing # coverage of the mocr package
 ```
 
 ## Test Structure
 
-### Test Files
+### Unit (`tests/unit/`)
+- `test_config.py` - configuration values, small utilities
+- `test_ocr.py` - OCR engine logic with Tesseract mocked (pixmap conversion, language, error paths)
+- `test_app.py` - app controller with tray mocked (hotkey timer, tray menu, quit)
+- `test_multimonitor_selection.py` - screen selection and coordinate mapping with mock screens
+- `test_eval_last.py` - `eval_last.py` with the OCR engine mocked
 
-- **`tests/test_screen_ocr.py`** - Main test suite with:
-  - `TestConfig` - Configuration validation tests
-  - `TestOCREngine` - OCR processing tests
-  - `TestClipboardManager` - Clipboard operation tests
-  - `TestWindowsIntegration` - Windows-specific utilities tests
-  - `TestIntegration` - End-to-end workflow tests
+### E2E (`tests/e2e/`)
+- `test_ocr_tesseract.py` - real Tesseract on `sample.png` / `sample2.png`, OCR → clipboard workflow
+- `test_clipboard.py` - real system clipboard round-trips
+- `test_tray.py` - real tray icon and hotkey polling
 
-- **`tests/test_multimonitor_selection.py`** - Multi-monitor selection tests with:
-  - `TestMultiMonitorSelection` - Screen selection and capture coordinate mapping
-  - `TestOverlayWindowSpanning` - Overlay window positioning across monitors
+### Sample images (`tests/e2e/`)
+- `sample.png` - expected text: "Download the installer from: https://github.com/UB-Mannheim/tesseract/wiki"
+- `sample2.png` - expected text: "this is wild" (known to fail with the default pipeline)
 
-### Test Requirements
+## Markers
 
-- **Sample Image**: `tests/sample.png` - Used for OCR testing
-  - Expected detected text: "Download the installer from: https://github.com/UB-Mannheim/tesseract/wiki"
-  - Required for: OCR processing tests
-  - Skip if: Tesseract OCR is not installed
-
-- **Tesseract OCR**: Required for OCR-related tests
-  - Tests are automatically skipped if not available
-  - Install from: https://github.com/UB-Mannheim/tesseract/wiki
-
-## Test Markers
-
-Tests are marked for easy filtering:
+- `e2e` - applied automatically to everything under `tests/e2e/`
+- `slow`, `ocr` - OCR/sample image tests
+- `clipboard` - clipboard tests
 
 ```bash
-# Run only slow tests (OCR processing, which can take time)
-pytest -m slow
-
-# Skip slow tests
-pytest -m "not slow"
-
-# Run OCR-related tests
-pytest -m ocr
-
-# Run clipboard tests
-pytest -m clipboard
-
-# Run Windows-specific tests
-pytest -m windows
+pytest tests -m "not e2e"   # same as the default unit run
+pytest tests/e2e -m "not slow"
 ```
-
-## Coverage Goals
-
-Current test coverage includes:
-
-- ✅ **Config class**: Hotkey, languages, display settings
-- ✅ **OCREngine**: Image processing with Tesseract
-- ✅ **ClipboardManager**: Copy/paste operations with unicode support
-- ✅ **WindowsIntegration**: Startup folder, registry, notifications
-- ✅ **Integration**: Full OCR-to-clipboard workflow
-
-Aiming for:
-- **Target**: >80% code coverage
-- **Critical paths**: 100% coverage
-- **OCR engine**: Fully tested with sample image
-
-## Continuous Integration
-
-To run tests in CI/CD pipeline:
-
-```bash
-pytest --cov=screen_ocr --cov-report=xml --cov-fail-under=80
-```
-
-## Troubleshooting
-
-### "Sample image not found"
-- Ensure `tests/sample.png` exists
-- Tests are skipped if missing
-
-### "Tesseract not installed"
-- OCR tests are skipped if Tesseract is not available
-- Run non-OCR tests with: `pytest -m "not ocr"`
-
-### "PyQt5 display errors"
-- Some tests use `pytest-qt` which handles Qt events
-- These should work in headless environments
-
-### Performance
-- First OCR run may be slow (Tesseract initialization)
-- Subsequent runs are cached by OCR engine
-- Use `--fast` flag to skip slow tests during development
-
-## Development Tips
-
-1. **Write tests while developing features**
-   ```bash
-   pytest -v -x  # Stop on first failure
-   ```
-
-2. **Watch for regressions**
-   ```bash
-   pytest -v --lf  # Run last failed tests
-   ```
-
-3. **Check coverage while developing**
-   ```bash
-   pytest --cov=screen_ocr --cov-report=term-missing -k "your_feature"
-   ```
-
-4. **Run specific test in isolation**
-   ```bash
-   pytest tests/test_screen_ocr.py::TestOCREngine::test_process_image_with_sample -v -s
-   ```
 
 ## Adding New Tests
 
-When adding new features:
-
-1. Create test in `tests/test_screen_ocr.py`
-2. Use appropriate test class or create new one
-3. Add markers as needed (`@pytest.mark.slow`, etc.)
-4. Ensure sample image has correct expected text
-5. Run with coverage: `pytest --cov=screen_ocr`
-
-## Example Test Template
-
-```python
-def test_my_feature():
-    """Test description"""
-    # Arrange
-    test_input = "something"
-    
-    # Act
-    result = some_function(test_input)
-    
-    # Assert
-    assert result == expected_value
-```
+1. Does the code under test reach the OS (Qt windows/tray, clipboard, screens,
+   Tesseract, keyboard, subprocess)? If you can mock it, write a unit test in
+   `tests/unit/`. If the point is to verify the real interaction, put it in `tests/e2e/`.
+2. If a unit test fails with "attempted OS interaction", mock that call rather
+   than moving the test, unless the test exists to check the real interaction.

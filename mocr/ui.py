@@ -11,7 +11,7 @@ from PyQt5.QtGui import (
 
 from .config import Config
 from .clipboard import ClipboardManager
-from .utils import debug_print, WIN32_AVAILABLE
+from .utils import debug_print
 from .ocr import TESSERACT_AVAILABLE
 
 class SelectionOverlay(QWidget):
@@ -59,7 +59,7 @@ class SelectionOverlay(QWidget):
         if not screens:
             return QRect(0, 0, 1920, 1080)
         
-        debug_print(f"\\n=== Multi-Monitor Debug Info ===")
+        debug_print("\n=== Multi-Monitor Debug Info ===")
         debug_print(f"Number of screens: {len(screens)}")
         
         combined = screens[0].geometry()
@@ -71,7 +71,7 @@ class SelectionOverlay(QWidget):
             combined = combined.united(geo)
         
         debug_print(f"Combined: x={combined.x()}, y={combined.y()}, w={combined.width()}, h={combined.height()}")
-        debug_print(f"================================\\n")
+        debug_print("================================\n")
         return combined
     
     def start_selection(self):

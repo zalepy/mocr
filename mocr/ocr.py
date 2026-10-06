@@ -52,7 +52,7 @@ class OCREngine:
             Extracted text string
         """
         if not TESSERACT_AVAILABLE:
-            return "ERROR: pytesseract not installed. Install with: pip install pytesseract\\nAlso install Tesseract OCR from: https://github.com/UB-Mannheim/tesseract/wiki"
+            return "ERROR: pytesseract not installed. Install with: pip install pytesseract\nAlso install Tesseract OCR from: https://github.com/UB-Mannheim/tesseract/wiki"
         
         try:
             # Convert QPixmap to PIL Image

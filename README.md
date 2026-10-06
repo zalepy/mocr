@@ -41,9 +41,22 @@ pip install -r requirements.txt
 
 ### 3. Run the Application
 
+Use the PowerShell scripts to run it in the background (uses `.venv`, created by `uv sync`):
+
+```powershell
+.\start.ps1             # start in background (no console window); refuses a second instance
+.\start.ps1 -DebugMode  # run in this console with --debug output
+.\stop.ps1              # stop the background instance
+```
+
+Or run it directly:
+
 ```bash
 python screen_ocr.py
 ```
+
+`stop.ps1` terminates the process, so the tray icon may linger until you hover over it.
+Use the tray menu's **Exit** for a clean shutdown.
 
 ## Usage
 

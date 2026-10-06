@@ -14,7 +14,7 @@ from PyQt5.QtGui import QGuiApplication
 from PyQt5.QtWidgets import QApplication
 
 # Add parent directory to path
-sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parents[2]))
 
 from mocr.ui import SelectionOverlay
 from mocr.app import ScreenOCRApp
