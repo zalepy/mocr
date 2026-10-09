@@ -300,13 +300,15 @@ class ScreenOCRApp(QObject):
                 'geometry': screen.geometry()
             })
         
-        # Create and show selection overlay
-        if self.overlay is None:
-            self.overlay = SelectionOverlay(self.screens_data)
-            self.overlay.selection_made.connect(self._on_selection_made)
-            self.overlay.selection_cancelled.connect(self._on_selection_cancelled)
-        
-        self.overlay.screens_data = self.screens_data
+        # A fresh overlay window every time: a reused one can keep stale screen
+        # data after a display change (e.g. monitors waking from power saving)
+        # and then shows off-screen, visible only as a taskbar entry.
+        if self.overlay is not None:
+            self.overlay.hide()
+            self.overlay.deleteLater()
+        self.overlay = SelectionOverlay(self.screens_data)
+        self.overlay.selection_made.connect(self._on_selection_made)
+        self.overlay.selection_cancelled.connect(self._on_selection_cancelled)
         self.overlay.start_selection()
     
     def _on_selection_made(self, rect: QRect):

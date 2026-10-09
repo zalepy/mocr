@@ -100,15 +100,20 @@ class TestStartCapture:
         assert ocr_app.screens_data[1]["geometry"] == QRect(3840, 0, 1920, 1080)
         overlay.start_selection.assert_called_once()
 
-    def test_reuses_overlay(self, ocr_app, screens_with_gap, monkeypatch):
-        overlay_cls = MagicMock()
+    def test_fresh_overlay_each_capture(self, ocr_app, screens_with_gap, monkeypatch):
+        # A reused overlay can keep stale screen data after a display change
+        first, second = MagicMock(name="first"), MagicMock(name="second")
+        overlay_cls = MagicMock(side_effect=[first, second])
         monkeypatch.setattr(mocr.app, "SelectionOverlay", overlay_cls)
 
         ocr_app.start_capture()
         ocr_app.start_capture()
 
-        overlay_cls.assert_called_once()
-        assert overlay_cls.return_value.start_selection.call_count == 2
+        assert overlay_cls.call_count == 2
+        first.deleteLater.assert_called_once()
+        second.deleteLater.assert_not_called()
+        assert ocr_app.overlay is second
+        second.start_selection.assert_called_once()
 
 
 class TestSelectionMade:
